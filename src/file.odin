@@ -50,7 +50,7 @@ get_line_input :: proc(builder: ^strings.Builder) -> (string, os.Errno) {
         // will not terminate the call
         last_rune := data[total_read-1]
         when ODIN_OS != .Windows {
-            next_byte: [1]byte
+            next_byte: [1]u8
             if last_rune == '\r'{
                 total_read, err = os.read(os.stdin, next_byte[:])
                 if err != 0 {

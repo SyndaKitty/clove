@@ -9,15 +9,17 @@ import "core:fmt"
 
 Tokenize_Result :: struct {
     tokens: [dynamic]Token,
-    errors: [dynamic]Token_Error,
+    errors: [dynamic]Tokenize_Error,
 }
 
-Token_Error_Type :: enum {
+Tokenize_Error_Type :: enum {
     Unknown_Character,
+    Malformed_Number,
 }
 
-Token_Error :: struct {
-    type: Token_Error_Type,
+Tokenize_Error :: struct {
+    type: Tokenize_Error_Type,
+    text: string,
 }
 
 Token_Type :: enum {
@@ -27,12 +29,12 @@ Token_Type :: enum {
     Dot,
     Colon,
     Equals,
-    Alpha,
-    Digit,
     Tab,
+    Number,
     Identifier,
     Newline,
     Unknown,
+    EOF,
 }
 
 Token :: struct {
@@ -79,7 +81,8 @@ tokenize_chunk :: proc(chunk: string) -> ^Tokenize_Result {
     for !_is_at_end(&tokenizer) {
         _scan_token(&tokenizer)
     }
-    
+    _add_token(&tokenizer, Token{type = .EOF})
+
     return tokenizer.result
 }
 
@@ -118,10 +121,28 @@ print_tokenize_results :: proc(results: ^Tokenize_Result) {
         else if token.type == .Unknown {
             fmt.printf("[?? %s ??]", token.text)
         }
+        else if token.type == .Number {
+            fmt.printf("[%s]", token.text)
+        }
+        else if token.type == .EOF {
+            fmt.print("[EOF]")
+        }
+        else {
+            fmt.printf("[OOPS NO RENDERING: %s]", token.type)
+        }
+    }
+    fmt.println()
+    for error in results.errors {
+        if len(error.text) > 0 {
+            fmt.printf("[%s]: \"%s\"\n", error.type, error.text)
+        }
+        else {
+            fmt.printf("[%s]\n", error.type)
+        }
     }
 }
 
-@private
+@(private="file")
 _scan_token :: proc(tokenizer: ^Tokenizer) {
     c := tokenizer.runes[tokenizer.current]
     if _match(tokenizer, "//") {
@@ -187,42 +208,75 @@ _scan_token :: proc(tokenizer: ^Tokenizer) {
     }
 }
 
-@private
+@(private="file")
 _is_letter :: proc(r: rune) -> bool {
     return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_'
 }
 
-@private
+@(private="file")
 _is_digit :: proc(r: rune) -> bool {
     return r >= '0' && r <= '9'
 }
 
-@private
+@(private="file")
 _is_separator :: proc(r: rune) -> bool {
     return r == ' ' || r == '\t' || r == '\n' || r == '\r'
 }
 
-@private
+@(private="file")
 _match_number :: proc(tokenizer: ^Tokenizer) -> bool {
-    digit_encountered := false
-    
-    return false
-    /*
+    r := tokenizer.runes[tokenizer.current]
+    dot_digit := r == '.' && _is_digit(_peek(tokenizer, 1))
+    if !_is_digit(r) && !dot_digit {
+        return false
+    }
+
+    builder := strings.builder_make(0, 16)
+
+    decimal_encountered := false
 
     for !_is_at_end(tokenizer) {
         r := tokenizer.runes[tokenizer.current]
         if _is_digit(r) {
-            digit_encountered = true
+            strings.write_rune(&builder, _advance(tokenizer))
         }
         else if r == '.' {
-
+            if !decimal_encountered {
+                decimal_encountered = true
+                strings.write_rune(&builder, _advance(tokenizer))
+            }
+            else {
+                // We've encountered two decimals in a single number
+                _consume_until_separator(tokenizer, &builder)
+    
+                _add_error(tokenizer, Tokenize_Error {
+                    type = .Malformed_Number,
+                    text = fmt.aprintf("Malformed number: \"%s\"", strings.to_string(builder))
+                })
+            }
+        }
+        else {
+            break
         }
     }
 
-    return false */
+    _add_token(tokenizer, Token{
+        type = .Number,
+        text = strings.to_string(builder)
+    })
+    return true
 }
 
-@private
+@(private="file")
+_consume_until_separator :: proc(tokenizer: ^Tokenizer, builder: ^strings.Builder) {
+    for !_is_at_end(tokenizer) && 
+        !_is_separator(tokenizer.runes[tokenizer.current]
+    ) {
+        strings.write_rune(builder, _advance(tokenizer))
+    }
+}
+
+@(private="file")
 _match_identifier :: proc(tokenizer: ^Tokenizer) -> bool {
     if _is_at_end(tokenizer) {
         return false
@@ -254,13 +308,13 @@ _match_identifier :: proc(tokenizer: ^Tokenizer) -> bool {
     return true
 }
 
-@private
+@(private="file")
 _match :: proc {
     _match_rune,
     _match_string,
 }
 
-@private
+@(private="file")
 _match_rune :: proc(tokenizer: ^Tokenizer, expected: rune) -> bool {
     if _is_at_end(tokenizer) {
         return false
@@ -273,7 +327,7 @@ _match_rune :: proc(tokenizer: ^Tokenizer, expected: rune) -> bool {
     return true
 }
 
-@private
+@(private="file")
 _match_string :: proc(tokenizer: ^Tokenizer, expected: string) -> bool {
     i := 0
     for r in expected {
@@ -290,17 +344,17 @@ _match_string :: proc(tokenizer: ^Tokenizer, expected: string) -> bool {
     return true
 }
 
-@private
+@(private="file")
 _add_token :: proc(tokenizer: ^Tokenizer, token: Token) {
     append(&tokenizer.result.tokens, token)
 }
 
-@private
+@(private="file")
 _is_at_end :: proc(tokenizer: ^Tokenizer) -> bool {
     return tokenizer.current >= tokenizer.rune_count
 }
 
-@private
+@(private="file")
 _peek :: proc(tokenizer: ^Tokenizer, offset: int) -> rune {
     index := tokenizer.current + offset
     
@@ -311,9 +365,15 @@ _peek :: proc(tokenizer: ^Tokenizer, offset: int) -> rune {
     return tokenizer.runes[index]
 }
 
-@private
-_advance:: proc(tokenizer: ^Tokenizer) -> rune {
+@(private="file")
+_advance :: proc(tokenizer: ^Tokenizer) -> rune {
     ret := tokenizer.runes[tokenizer.current]
     tokenizer.current += 1
+    // fmt.printf("Advance: '%c'\n", ret)
     return ret
+}
+
+@(private="file")
+_add_error :: proc(tokenizer: ^Tokenizer, error: Tokenize_Error) {
+    append(&tokenizer.result.errors, error)
 }
