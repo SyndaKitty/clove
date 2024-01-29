@@ -17,3 +17,5 @@ println (  num_5)
 
 __num_5 : =   123.
 println (  num_5)
+
+println(5)

@@ -86,55 +86,30 @@ tokenize_chunk :: proc(chunk: string) -> ^Tokenize_Result {
     return tokenizer.result
 }
 
-print_tokenize_results :: proc(results: ^Tokenize_Result) {
+print_tokenize_tokens :: proc(results: ^Tokenize_Result) {
     for token in results.tokens {
-        if token.type == .Newline {
-            fmt.println("\n")
-        }
-        else if token.type == .Identifier {
-            fmt.printf("['%s']", token.text)
-        }
-        else if token.type == .Left_Paren {
-            fmt.print("[(]")
-        }
-        else if token.type == .Right_Paren {
-            fmt.print("[)]")
-        }
-        else if token.type == .Print {
-            fmt.print("[println]")
-        }
-        else if token.type == .Left_Paren {
-            fmt.print("[(]")
-        }
-        else if token.type == .Dot {
-            fmt.print("[.]")
-        }
-        else if token.type == .Colon {
-            fmt.print("[:]")
-        }
-        else if token.type == .Equals {
-            fmt.print("[=]")
-        }
-        else if token.type == .Tab {
-            fmt.print("[\\t]")
-        }
-        else if token.type == .Unknown {
-            fmt.printf("[?? %s ??]", token.text)
-        }
-        else if token.type == .Number {
-            fmt.printf("[%s]", token.text)
-        }
-        else if token.type == .EOF {
-            fmt.print("[EOF]")
-        }
-        else {
-            fmt.printf("[OOPS NO RENDERING: %s]", token.type)
+        switch token.type {
+            case .Newline:      fmt.println("[\\n]")
+            case .Left_Paren:   fmt.print("[(]")
+            case .Right_Paren:  fmt.print("[)]")
+            case .Dot:          fmt.print("[.]")
+            case .Print:        fmt.print("[println]")
+            case .Colon:        fmt.print("[:]")
+            case .Equals:       fmt.print("[=]")
+            case .Tab:          fmt.print("[\\t]")
+            case .Identifier:   fmt.printf("['%s']", token.text)
+            case .Number:       fmt.printf("[%s]", token.text)
+            case .Unknown:      fmt.printf("[?? %s ??]", token.text)
+            case .EOF:          fmt.print("[EOF]")
         }
     }
     fmt.println()
+}
+
+print_tokenize_errors :: proc(results: ^Tokenize_Result) {
     for error in results.errors {
         if len(error.text) > 0 {
-            fmt.printf("[%s]: \"%s\"\n", error.type, error.text)
+            fmt.printf("[%s]: [%s]\n", error.type, error.text)
         }
         else {
             fmt.printf("[%s]\n", error.type)
@@ -196,14 +171,15 @@ _scan_token :: proc(tokenizer: ^Tokenizer) {
     }
     else {
         builder := strings.builder_make(0, 16)
-        for !_is_at_end(tokenizer) && 
-            !_is_separator(tokenizer.runes[tokenizer.current]
-        ) {
-            strings.write_rune(&builder, _advance(tokenizer))
-        }
+        _consume_until_separator(tokenizer, &builder)
+        str := strings.to_string(builder)
         _add_token(tokenizer, Token{
             type = .Unknown, 
-            text = strings.to_string(builder)
+            text = str
+        })
+        _add_error(tokenizer, Tokenize_Error {
+            type = .Unknown_Character,
+            text = fmt.aprintf("Unknown string: \"%s\"", str)
         })
     }
 }
