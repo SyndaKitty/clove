@@ -1,0 +1,19 @@
+// Declarations, prints, comments
+
+num := 5.0
+println(num)
+
+num2 : = 1.5
+println(num2)
+
+_num3:  =1.5
+println(_num3  )  
+
+num_4    :   =   1.5
+println (  num_4)
+
+num_5 : =   .123
+println (  num_5)
+
+__num_5 : =   123.
+println (  num_5)

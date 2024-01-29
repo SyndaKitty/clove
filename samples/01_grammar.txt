@@ -1,0 +1,16 @@
+program    -> statement* EOF
+
+statement  -> var | print
+var        -> IDENTIFIER COLON EQUALS NUMBER
+print      -> PRINT LPAREN IDENTIFIER RPAREN
+
+LPAREN     -> "("
+RPAREN     -> ")"
+DOT        -> "."
+COLON      -> ":"
+EQUALS     -> "="
+PRINT      -> "println"
+NUMBER     -> DIGIT+ ( "." DIGIT+ )?
+IDENTIFIER -> ALPHA ( ALPHA | DIGIT )*
+ALPHA      -> "a" ... "z" | "A" ... "Z" | "_"
+DIGIT      -> "0" ... "9"

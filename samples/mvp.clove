@@ -1,0 +1,65 @@
+// Member variables
+// Initializing - Dynamic typing
+num := 5
+dec := 2.7
+str := "Hello"
+arr := [num, dec, str, "other value"]
+
+// Assigning
+num = 7
+dec = dec * 2
+str = str .. " World!"
+
+
+// Types
+// string
+// int
+// float
+// bool
+// nil
+
+/*
+ Operations
+ +
+ -
+ *
+ /
+ <
+ <=
+ >
+ >=
+ ==
+ !=
+ and
+ or
+ not
+ ..   concatenation
+*/
+
+// Enums
+Days :: enum
+    Monday    # = 1
+    Tuesday   # = 2
+    Wednesday # = 3
+    Thursday  # = 4
+    Friday    # = 5
+    Saturday  # = 6
+    Sunday    # = 7
+
+# If statements
+cond := 1
+if cond == 1
+    println("Uno")
+elif cond == 2
+    println("Dos)
+else
+    println("I dunno")
+
+
+# For loops
+list := ["meow", "bow", "cow"]
+for item in list
+    println(item .. " weow")
+
+for i in 1..5 # print 1-5
+    println(i)

@@ -1,0 +1,17 @@
+// Assignments, expressions, multi-line comment
+
+num := 5.0
+println(num)
+
+num2 := 1.5
+
+num_3 := 2.0
+
+/* 
+Assignment! 
+   wow~!
+*/
+num_3 = num + num_3
+
+
+println(num_3)

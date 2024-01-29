@@ -1,0 +1,75 @@
+# Class definition
+class Sample
+
+# Member variables
+## Dynamic typing
+num := 5
+dec := 2.7
+str := "Hello"
+arr := [num, dec, str, "other value"]
+
+## Optional static typing
+n : int = 5
+d : float = 2.7
+s : string = "Hello"
+a : []var = [n, d, s, "other_value"]
+
+
+# Types
+## string
+## int
+## float
+## bool
+## nil
+
+
+# Operations
+## +
+## -
+## *
+## /
+## <
+## <=
+## >
+## >=
+## ==
+## !=
+## and
+## or
+## xor
+## not
+## % 
+## %%
+## ^
+
+# Constants
+HEHE :: 8585   # Inferred typing
+NAME :: "Geoff"
+
+
+# Enums
+Days :: enum
+    Monday    # = 1
+    Tuesday   # = 2
+    Wednesday # = 3
+    Thursday  # = 4
+    Friday    # = 5
+    Saturday  # = 6
+    Sunday    # = 7
+
+
+# For loops
+list := ["meow", "bow", "cow"]
+for item in list
+    print(item .. " weow")
+
+for i in 1..5 # print 1-5
+    print(i)
+
+for i in 1..<5 # print 1-4
+    print(i)
+
+for i in 1..10 # print 1-6
+    print(i)
+    if i == 5
+        break
