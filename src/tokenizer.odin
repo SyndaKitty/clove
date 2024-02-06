@@ -15,6 +15,7 @@ Tokenize_Result :: struct {
 Tokenize_Error_Type :: enum {
     Unknown_Character,
     Malformed_Number,
+    Comment_Missing_End,
 }
 
 Tokenize_Error :: struct {
@@ -120,7 +121,27 @@ print_tokenize_errors :: proc(results: ^Tokenize_Result) {
 @(private="file")
 _scan_token :: proc(tokenizer: ^Tokenizer) {
     c := tokenizer.runes[tokenizer.current]
-    if _match(tokenizer, "//") {
+    if _match(tokenizer, "/*") {
+        nest := 1
+        for !_is_at_end(tokenizer) && nest > 0 {
+            if _match(tokenizer, "/*") {
+                nest += 1
+            }
+            else if _match(tokenizer, "*/") {
+                nest -= 1
+            }
+            else {
+                _advance(tokenizer)
+            }
+        }
+        if _is_at_end(tokenizer) && nest > 0 {
+            _add_error(tokenizer, Tokenize_Error {
+                type = .Comment_Missing_End,
+                text = "Multiline comment missing corresponding */"
+            })
+        }
+    }
+    else if _match(tokenizer, "//") {
         for !_is_at_end(tokenizer) && tokenizer.runes[tokenizer.current] != '\n' {
             _advance(tokenizer)
         }
@@ -175,11 +196,11 @@ _scan_token :: proc(tokenizer: ^Tokenizer) {
         str := strings.to_string(builder)
         _add_token(tokenizer, Token{
             type = .Unknown, 
-            text = str
+            text = str,
         })
         _add_error(tokenizer, Tokenize_Error {
             type = .Unknown_Character,
-            text = fmt.aprintf("Unknown string: \"%s\"", str)
+            text = fmt.aprintf("Unknown string: \"%s\"", str),
         })
     }
 }
@@ -342,11 +363,21 @@ _peek :: proc(tokenizer: ^Tokenizer, offset: int) -> rune {
 }
 
 @(private="file")
-_advance :: proc(tokenizer: ^Tokenizer) -> rune {
+_advance :: proc {
+    _advance_single,
+    _advance_multiple
+}
+
+@(private="file")
+_advance_single :: proc(tokenizer: ^Tokenizer) -> rune {
     ret := tokenizer.runes[tokenizer.current]
     tokenizer.current += 1
-    // fmt.printf("Advance: '%c'\n", ret)
     return ret
+}
+
+@(private="file")
+_advance_multiple :: proc(tokenizer: ^Tokenizer, count: int) {
+    tokenizer.current += count
 }
 
 @(private="file")

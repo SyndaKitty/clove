@@ -1,11 +1,14 @@
-// Assignments, expressions, multi-line comment
+// Assignments, addition, expressions, multi-line comment
 
 num := 5.0
 println(num)
 
 num2 := 1.5
+num2 = 2.5
 
 num_3 := 2.0
+
+6.9
 
 /* 
 Assignment! 

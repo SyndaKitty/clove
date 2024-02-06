@@ -10,7 +10,7 @@ Parse_Result_Type :: enum {
 
 Parse_Error_Type :: enum {
     Unexpected_Token,
-    Expected_Newline
+    Expected_Newline,
 }
 
 Parse_Error :: struct {
@@ -31,20 +31,20 @@ Parser :: struct {
 }
 
 EOF_Token := Token {
-    type = .EOF
+    type = .EOF,
 }
 
 parse_chunk :: proc(chunk: string) -> ^Parse_Result {
     tokenize_result := tokenize_chunk(chunk)
-    // defer free_tokenize_result(tokenize_result)
 
+    print_tokenize_tokens(tokenize_result)
     // TODO: These should be passed on as parser errors
     print_tokenize_errors(tokenize_result)
 
     parser := Parser {
         result = new(Parse_Result),
         tokens = tokenize_result.tokens,
-        token_count = len(tokenize_result.tokens)
+        token_count = len(tokenize_result.tokens),
     }
 
     _parse_program(&parser)
@@ -72,7 +72,9 @@ _parse_program :: proc(parser: ^Parser) {
         t := _peek(parser, 0)
         _add_error(parser, Parse_Error {
             type = .Unexpected_Token,
-            text = fmt.aprintf("Unexpected token: [%s]\"%s\". Expected EOF", t.type, t.text),
+            text = fmt.aprintf(
+                "Unexpected token: [%s]\"%s\". Expected EOF", 
+                t.type, t.text),
         })
     }
 }
@@ -81,7 +83,7 @@ _parse_program :: proc(parser: ^Parser) {
 _statement :: proc(parser: ^Parser) -> (^AST_Statement, bool) {
     for !_is_at_end(parser) {
         t := _peek(parser, 0)
-    
+        
         if t.type == .Print {
             print, ok := _print(parser)
             if ok {

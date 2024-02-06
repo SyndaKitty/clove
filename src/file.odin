@@ -71,7 +71,7 @@ get_line_input :: proc(builder: ^strings.Builder) -> (string, os.Errno) {
             line = line[:len(line)-1]
 
             // Remove \r
-            if rune(line[len(line)-1]) == '\r' {
+            if line[len(line)-1] == u8('\r') {
                 line = line[:len(line)-1]
             }
             return line, os.ERROR_NONE

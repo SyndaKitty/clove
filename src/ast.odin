@@ -15,7 +15,7 @@ AST :: struct {
 }
 
 AST_Base :: struct {
-    type: AST_Type
+    type: AST_Type,
 }
 
 AST_Statement :: union {

@@ -1,0 +1,18 @@
+program    -> statement* EOF
+
+statement  -> var | print | expression
+var        -> IDENTIFIER COLON EQUALS NUMBER
+print      -> PRINT LPAREN IDENTIFIER RPAREN
+expression -> NUMBER | IDENTIFIER | func
+
+PRINT      -> "println"
+NUMBER     -> DIGIT+ ( "." DIGIT+ )?
+IDENTIFIER -> ALPHA ( ALPHA | DIGIT )*
+
+ALPHA      -> "a" ... "z" | "A" ... "Z" | "_"
+DIGIT      -> "0" ... "9"
+LPAREN     -> "("
+RPAREN     -> ")"
+DOT        -> "."
+COLON      -> ":"
+EQUALS     -> "="
