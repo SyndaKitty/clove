@@ -3,6 +3,8 @@ package main
 import "core:fmt"
 import "core:strings"
 
+import "log"
+
 Parse_Result_Type :: enum {
     Success,
     Error,
@@ -60,6 +62,7 @@ print_parse_errors :: proc(results: ^Parse_Result) {
 
 @(private="file")
 _parse_program :: proc(parser: ^Parser) {
+    log.trace("parse_program")
     for {
         statement, ok := _statement(parser)
         if !ok {
@@ -83,20 +86,18 @@ _parse_program :: proc(parser: ^Parser) {
 _statement :: proc(parser: ^Parser) -> (^AST_Statement, bool) {
     for !_is_at_end(parser) {
         t := _peek(parser, 0)
-        
-        if t.type == .Print {
-            print, ok := _print(parser)
-            if ok {
-                return cast(^AST_Statement)(print), true
-            }
-            _consume_until(parser, .Newline)
+        log.trace(t.text, t.type)
+
+        if match(parser, [?]Token_Type{.Identifier, .Colon, .Equals, }) {
+            // Declaration
+            _expression(parser)
         }
-        else if t.type == .Identifier {
-            assignment, ok := _assignment(parser)
-            if ok {
-                return cast(^AST_Statement)(assignment), true
-            }
-            _consume_until(parser, .Newline)
+        else if match(parser, [?]Token_Type{.Identifier, .Equals}) {
+            _expression(parser)
+        }
+        else if match(parser, [?]Token_Type)
+        else if t.type == .Newline {
+            _advance(parser)
         }
         else {
             _add_error(parser, Parse_Error {
@@ -104,6 +105,7 @@ _statement :: proc(parser: ^Parser) -> (^AST_Statement, bool) {
                 text = fmt.aprintf("Unexpected token: [%s]\"%s\". Expected statement", t.type, t.text),
             })
             _consume_until(parser, .Newline)
+            _advance(parser)
         }
     }
 
@@ -244,6 +246,7 @@ _is_whitespace :: proc(token: ^Token) -> bool {
 
 @(private="file")
 _assignment :: proc(parser: ^Parser) -> (^AST_Assignment, bool) {
+    log.trace("assignment")
     if _is_at_end(parser) {
         return nil, false
     }
@@ -275,11 +278,13 @@ _assignment :: proc(parser: ^Parser) -> (^AST_Assignment, bool) {
 
 @(private="file")
 _expression :: proc(parser: ^Parser) -> (^AST_Expression, bool) {
+    log.trace("expression")
     if _is_at_end(parser) {
         return nil, false
     }
     
     t := _peek(parser, 0)
+    res: ^AST_Expression
     if t.type == .Number {
         _advance(parser)
         expression := new(AST_NumberLiteral)
@@ -296,6 +301,11 @@ _expression :: proc(parser: ^Parser) -> (^AST_Expression, bool) {
     }
     
     return nil, false
+}
+
+@(private="file")
+_first_node :: proc(parser: ^Parser) -> {
+
 }
 
 @(private="file")

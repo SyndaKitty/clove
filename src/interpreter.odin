@@ -4,6 +4,8 @@ import "core:strings"
 import "core:os"
 import "core:fmt"
 
+import "log"
+
 Interpret_Result_Type :: enum {
     Success,
     Parse_Error,
@@ -59,19 +61,24 @@ interpret_chunk :: proc(line: string, result: ^Interpret_Result, interpreter: ^I
         for err in res.errors {
             fmt.println(err.text)
         }
-    }
+     }
     else {
         run_ast(res.ast, interpreter)
     }
 }
 
 run_ast :: proc(program: AST, interpreter: ^Interpreter) {
+    log.trace("run_ast")
     for statement in program.statements {
         run_statement(statement, interpreter)
+    }
+    for value in interpreter.values {
+        fmt.println(value)
     }
 }
 
 run_statement :: proc(statement: ^AST_Statement, interpreter: ^Interpreter) {
+    log.trace("run_statement")
     base := cast(^AST_Base)statement
     if base.type == .Print {
         run_print(cast(^AST_Print)statement, interpreter)
@@ -82,12 +89,14 @@ run_statement :: proc(statement: ^AST_Statement, interpreter: ^Interpreter) {
 }
 
 run_print :: proc(statement: ^AST_Print, interpreter: ^Interpreter) {
+    log.trace("run_print")
     expression := cast(^AST_Base)statement.arg
     value := get_expression_value(statement.arg, interpreter)
     fmt.println(value)
 }
 
 run_assignment :: proc(statement: ^AST_Assignment, interpreter: ^Interpreter) {
+    log.trace("run_assignment")
     variable_name := statement.identifier.text
     arg := statement.expression
     val := get_expression_value(arg, interpreter)
@@ -97,6 +106,7 @@ run_assignment :: proc(statement: ^AST_Assignment, interpreter: ^Interpreter) {
 }
 
 get_expression_value :: proc(expression: ^AST_Expression, interpreter: ^Interpreter) -> string {   
+    log.trace("get_expression_value")
     base := cast(^AST_Base)expression
     if base.type == .NumberLiteral {
         num := cast(^AST_NumberLiteral)expression

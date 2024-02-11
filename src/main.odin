@@ -5,13 +5,16 @@ import "core:fmt"
 import "core:strings"
 import "core:mem"
 
+import "log"
+
 main :: proc() {
     track: mem.Tracking_Allocator
     mem.tracking_allocator_init(&track, context.allocator)
     context.allocator = mem.tracking_allocator(&track)
 
     when ODIN_DEBUG {
-        fmt.println("[Debug mode]")
+        log.debug("Running in debug mode")
+        /*
         defer {
             if len(track.allocation_map) > 0 {
                 fmt.eprintf("=== %v allocations not freed: ===\n", len(track.allocation_map))
@@ -27,6 +30,7 @@ main :: proc() {
             }
             mem.tracking_allocator_destroy(&track)
         }
+        */
     }
 
 
@@ -55,10 +59,14 @@ run_clove_file :: proc(filename: string) {
         defer delete(contents)
         defer delete(contents_string)
         
-        fmt.println(contents_string)
+        interpreter: Interpreter
+        result: Interpret_Result
+
+        interpret_chunk(contents_string, &result, &interpreter)
     }
     else {
         fmt.printf("Unable to read file %s\n", valid_filename)
         return
     }
+    log.trace("Test3")
 }

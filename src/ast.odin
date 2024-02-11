@@ -3,10 +3,10 @@ package main
 AST_Type :: enum {
     Program,
     Statement,
+    Declaration,
     Assignment,
     NumberLiteral,
     Identifier,
-    Print,
 }
 
 AST :: struct {
@@ -20,6 +20,7 @@ AST_Base :: struct {
 
 AST_Statement :: union {
     AST_Base,
+    AST_Declaration,
     AST_Assignment,
     AST_Print,
 }
@@ -28,6 +29,14 @@ AST_Expression :: union {
     AST_Base,
     AST_NumberLiteral,
     AST_Identifier,
+    AST_Binary,
+    AST_Unary,
+}
+
+AST_Declaration :: struct {
+    type: AST_Type,
+    identifier: ^Token,
+    expression: ^AST_Expression,
 }
 
 AST_Assignment :: struct {
@@ -41,17 +50,20 @@ AST_NumberLiteral :: struct {
     number: ^Token,
 }
 
+AST_Binary :: struct {
+    type: AST_Type,
+    left: ^AST_Expression,
+    right: ^AST_Expression,
+    operator: Token,
+}
+
+AST_Unary :: struct {
+    type: AST_Type,
+    subject: ^AST_Expression,
+    operator: Token,
+}
+
 AST_Identifier :: struct {
     type: AST_Type,
     identifier: ^Token,
 }
-
-AST_Print :: struct {
-    type: AST_Type,
-    arg: ^AST_Expression,
-}
-
-// AST_Operation :: struct {
-//     type: AST_Type,
-//     operator: Token,
-// }

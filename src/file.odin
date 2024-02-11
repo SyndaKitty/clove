@@ -5,8 +5,10 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 
+import "log"
+
 // Find the closest matching file
-// Tries both
+// Tries all
 //  1. Exact match
 //  2. filename + ".clove"
 // Returns: filename, ok
@@ -14,14 +16,21 @@ find_file :: proc(filename: string) -> (string, bool) {
     trimmed_name := strings.clone_from(strings.trim(filename, " "))
     ext := filepath.ext(trimmed_name)
 
-    // 
     if os.exists(trimmed_name) {
         return trimmed_name, true
     }
-    else if !strings.has_suffix(trimmed_name, ".clove") {
-        defer delete(trimmed_name)
-        file_and_ext := [?]string { trimmed_name, ".clove" }
-        return strings.concatenate(file_and_ext[:]), true
+
+    defer delete(trimmed_name)
+    if ext == "" {
+        for possible_extension in ([?]string{".clove"}) {
+            file_and_ext := [?]string { trimmed_name, possible_extension }
+            appended_filename := strings.concatenate(file_and_ext[:])
+            log.debug("Looking for: \"", appended_filename, "\"")
+            if os.exists(appended_filename) {
+                return appended_filename, true
+            }
+            delete(appended_filename)
+        }
     }
     
     return "", false
