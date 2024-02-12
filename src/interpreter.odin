@@ -55,7 +55,10 @@ run_interpreter :: proc() {
     }
 }
 
-interpret_chunk :: proc(line: string, result: ^Interpret_Result, interpreter: ^Interpreter) {
+interpret_chunk :: proc(
+    line: string, result: ^Interpret_Result, 
+    interpreter: ^Interpreter
+) {
     res := parse_chunk(line)
     if len(res.errors) > 0 {
         for err in res.errors {
@@ -80,24 +83,14 @@ run_ast :: proc(program: AST, interpreter: ^Interpreter) {
 run_statement :: proc(statement: ^AST_Statement, interpreter: ^Interpreter) {
     log.trace("run_statement")
     base := cast(^AST_Base)statement
-    if base.type == .Print {
-        run_print(cast(^AST_Print)statement, interpreter)
-    }
-    else if base.type == .Assignment {
+    if base.type == .Assignment {
         run_assignment(cast(^AST_Assignment)statement, interpreter)
     }
 }
 
-run_print :: proc(statement: ^AST_Print, interpreter: ^Interpreter) {
-    log.trace("run_print")
-    expression := cast(^AST_Base)statement.arg
-    value := get_expression_value(statement.arg, interpreter)
-    fmt.println(value)
-}
-
 run_assignment :: proc(statement: ^AST_Assignment, interpreter: ^Interpreter) {
     log.trace("run_assignment")
-    variable_name := statement.identifier.text
+    variable_name := statement.identifier.name_token.text
     arg := statement.expression
     val := get_expression_value(arg, interpreter)
     fmt.printf("Assign: \"%s\" to \"%s\"\n", val, variable_name)
@@ -105,7 +98,11 @@ run_assignment :: proc(statement: ^AST_Assignment, interpreter: ^Interpreter) {
     // fmt.printf("Assigning value to %s: %s\n", variable_name, val)
 }
 
-get_expression_value :: proc(expression: ^AST_Expression, interpreter: ^Interpreter) -> string {   
+get_expression_value :: proc(
+    expression: ^AST_Expression, 
+    interpreter: ^Interpreter,
+) -> string 
+{   
     log.trace("get_expression_value")
     base := cast(^AST_Base)expression
     if base.type == .NumberLiteral {
@@ -113,14 +110,15 @@ get_expression_value :: proc(expression: ^AST_Expression, interpreter: ^Interpre
         return num.number.text
     }
     else if base.type == .Identifier {
-        iden := cast(^AST_Identifier)expression
-        val, ok := interpreter.values[iden.identifier.text]
-        fmt.printf("Lookup: \"%s\" -> \"%s\"\n", iden.identifier.text, (val if ok else "nil"))
+        identifier := cast(^AST_Identifier)expression
+        val, ok := interpreter.values[identifier.name_token.text]
+        fmt.printf("Lookup: \"%s\" -> \"%s\"\n", 
+            identifier.name_token.text, 
+            (val if ok else "nil")
+        )
         if ok {
-           // fmt.printf("Getting value from %s: %s\n", iden.identifier.text, val)
             return val
         }
-        // fmt.printf("Getting value from %s: nil\n", iden.identifier.text)
         return "nil"
     }
     return "nil"

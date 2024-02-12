@@ -26,7 +26,6 @@ Tokenize_Error :: struct {
 Token_Type :: enum {
     Left_Paren,
     Right_Paren,
-    Print,
     Dot,
     Colon,
     Equals,
@@ -34,8 +33,19 @@ Token_Type :: enum {
     Number,
     Identifier,
     Newline,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
     Unknown,
     EOF,
+}
+
+is_operator :: proc(type: Token_Type) -> bool {
+    return type == .Add || 
+        type == .Subtract || 
+        type == .Multiply || 
+        type == .Divide
 }
 
 Token :: struct {
@@ -94,11 +104,14 @@ print_tokenize_tokens :: proc(results: ^Tokenize_Result) {
             case .Left_Paren:   fmt.print("[(]")
             case .Right_Paren:  fmt.print("[)]")
             case .Dot:          fmt.print("[.]")
-            case .Print:        fmt.print("[println]")
             case .Colon:        fmt.print("[:]")
             case .Equals:       fmt.print("[=]")
             case .Tab:          fmt.print("[\\t]")
             case .Identifier:   fmt.printf("['%s']", token.text)
+            case .Add:          fmt.printf("[+]")
+            case .Subtract:     fmt.printf("[-]")
+            case .Multiply:     fmt.printf("[*]")
+            case .Divide:       fmt.printf("[/]")
             case .Number:       fmt.printf("[%s]", token.text)
             case .Unknown:      fmt.printf("[?? %s ??]", token.text)
             case .EOF:          fmt.print("[EOF]")
@@ -168,9 +181,6 @@ _scan_token :: proc(tokenizer: ^Tokenizer) {
     else if c == ' ' {
         // Ignore
         _advance(tokenizer)
-    }
-    else if _match(tokenizer, "println") {
-        _add_token(tokenizer, Token{type = .Print})
     }
     else if _match_number(tokenizer) {
         // Done
@@ -365,7 +375,7 @@ _peek :: proc(tokenizer: ^Tokenizer, offset: int) -> rune {
 @(private="file")
 _advance :: proc {
     _advance_single,
-    _advance_multiple
+    _advance_multiple,
 }
 
 @(private="file")

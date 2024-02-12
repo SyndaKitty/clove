@@ -73,3 +73,30 @@ for i in 1..10 # print 1-6
     print(i)
     if i == 5
         break
+
+# We should probably allow arguments to be passed on the next line, as well
+#  as on the same line, eg:
+
+fn TestFunc(asd: int)
+    return
+
+fn TestFunc2(
+    asd: int
+    bsd: int
+)   # <-- how should we handle this closing parentheses. On a line by itself? 
+    # Or on the line of the last parameter
+    return
+
+# I don't like the look of having it on the same line as the parameter
+# maybe that should be up to the user though
+fn TestFunc3(
+    asd: int
+    bsd:int)
+    return
+
+# Actually depending on the syntax of return types we can 
+# make can better determin what we should do TODO
+
+
+# Tuples / mutliple return arguments
+# varargs
