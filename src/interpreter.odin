@@ -5,6 +5,8 @@ import "core:os"
 import "core:fmt"
 
 import "log"
+import "parser"
+import "ast"
 
 Interpret_Result_Type :: enum {
     Success,
@@ -15,7 +17,7 @@ Interpret_Result_Type :: enum {
 Interpret_Result :: struct {
     kind: Interpret_Result_Type,
     
-    parse_result: Parse_Result,
+    parse_result: parser.Result,
     file_error: os.Errno,
 }
 
@@ -57,9 +59,9 @@ run_interpreter :: proc() {
 
 interpret_chunk :: proc(
     line: string, result: ^Interpret_Result, 
-    interpreter: ^Interpreter
+    interpreter: ^Interpreter,
 ) {
-    res := parse_chunk(line)
+    res := parser.parse_chunk(line)
     if len(res.errors) > 0 {
         for err in res.errors {
             fmt.println(err.text)
@@ -70,56 +72,6 @@ interpret_chunk :: proc(
     }
 }
 
-run_ast :: proc(program: AST, interpreter: ^Interpreter) {
-    log.trace("run_ast")
-    for statement in program.statements {
-        run_statement(statement, interpreter)
-    }
-    for value in interpreter.values {
-        fmt.println(value)
-    }
-}
-
-run_statement :: proc(statement: ^AST_Statement, interpreter: ^Interpreter) {
-    log.trace("run_statement")
-    base := cast(^AST_Base)statement
-    if base.type == .Assignment {
-        run_assignment(cast(^AST_Assignment)statement, interpreter)
-    }
-}
-
-run_assignment :: proc(statement: ^AST_Assignment, interpreter: ^Interpreter) {
-    log.trace("run_assignment")
-    variable_name := statement.identifier.name_token.text
-    arg := statement.expression
-    val := get_expression_value(arg, interpreter)
-    fmt.printf("Assign: \"%s\" to \"%s\"\n", val, variable_name)
-    interpreter.values[variable_name] = val
-    // fmt.printf("Assigning value to %s: %s\n", variable_name, val)
-}
-
-get_expression_value :: proc(
-    expression: ^AST_Expression, 
-    interpreter: ^Interpreter,
-) -> string 
-{   
-    log.trace("get_expression_value")
-    base := cast(^AST_Base)expression
-    if base.type == .NumberLiteral {
-        num := cast(^AST_NumberLiteral)expression
-        return num.number.text
-    }
-    else if base.type == .Identifier {
-        identifier := cast(^AST_Identifier)expression
-        val, ok := interpreter.values[identifier.name_token.text]
-        fmt.printf("Lookup: \"%s\" -> \"%s\"\n", 
-            identifier.name_token.text, 
-            (val if ok else "nil")
-        )
-        if ok {
-            return val
-        }
-        return "nil"
-    }
-    return "nil"
+run_ast :: proc(program: ast.AST, interpreter: ^Interpreter) {
+    
 }
