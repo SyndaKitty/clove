@@ -21,7 +21,7 @@ Type :: enum {
 }
 
 Node :: struct {
-    derived: Any_Node
+    derived: Any_Node,
 }
 
 // Base Types
@@ -79,18 +79,32 @@ new_assignment :: proc(
 
 
 // Expressions
-Identifier :: struct {
+Value :: struct {
     using expr: Expression,
-    type: Type,
+    derived: Any_Value,
+}
+
+Identifier :: struct {
+    using val: Value,
     name_token: ^tok.Token,
 }
 
 new_identifier :: proc(name: ^tok.Token) -> ^Identifier {
     ast := new(Identifier)
-    ast.type = .Identifier
     ast.name_token = name
 
     return ast
+}
+
+Number_Literal :: struct {
+    using val: Value,
+    number: ^tok.Token,
+}
+
+new_number_literal :: proc(t: ^tok.Token) -> ^Node {
+    node := new(Number_Literal)
+    node.number = t
+    return node
 }
 
 Binary_Op :: struct {
@@ -126,17 +140,6 @@ new_unary :: proc(subject: ^Expression, operator: ^tok.Token) -> ^Unary_Op{
     return ast
 }
 
-Number_Literal :: struct {
-    using expr: Expression,
-    number: ^tok.Token,
-}
-
-new_number_literal :: proc(t: ^tok.Token) -> ^Node {
-    node := new(Number_Literal)
-    node.number = t
-    return node
-}
-
 Comparison :: struct {
     // TODO - we should allow multiple comparisons
     // eg. a == b == c >= 2
@@ -164,10 +167,16 @@ Any_Statement :: union {
 
 Any_Expr :: union {
     ^Identifier,
+    ^Number_Literal,
     ^Binary_Op,
     ^Unary_Op,
-    ^Number_Literal,
     //Func_Call TODO,
+}
+
+Any_Value :: union {
+    ^Identifier,
+    ^Number_Literal,
+    // Func_Call
 }
 
 new :: proc($T: typeid) -> ^T {
@@ -182,4 +191,17 @@ new :: proc($T: typeid) -> ^T {
 		n.derived_statement = n
 	}
 	return n
+}
+
+is_value :: proc(n: ^Node) -> bool {
+    {
+        _, ok := n.derived.(^Number_Literal) 
+        if ok do return true
+    }
+    {
+        _, ok := n.derived.(^Identifier) 
+        if ok do return true
+    }
+    
+    return false
 }

@@ -12,9 +12,7 @@ num_3 := 2.0
 
 /* 
 Assignment! 
-   wow~!
+    wow~!
 */
 num_3 = num + num_3
-
-
 println(num_3)

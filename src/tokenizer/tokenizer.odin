@@ -3,6 +3,7 @@ package tokenizer
 import "core:unicode/utf8"
 import "core:strings"
 import "core:fmt"
+import "../log"
 
 // TODO: Adhere to Unicode standard
 // https://www.unicode.org/reports/tr31/#D1
@@ -16,6 +17,7 @@ Error_Type :: enum {
     Unknown_Character,
     Malformed_Number,
     Comment_Missing_End,
+    Misaligned_Tab,
 }
 
 Error :: struct {
@@ -45,13 +47,6 @@ EOF := Token {
     type = .EOF,
 }
 
-is_operator :: proc(type: Type) -> bool {
-    return type == .Add || 
-        type == .Subtract || 
-        type == .Multiply || 
-        type == .Divide
-}
-
 Token :: struct {
     type: Type,
     text: string,
@@ -76,6 +71,8 @@ Tokenizer :: struct {
     start: int,
     line_number: int,
     line_index: int,
+
+    at_line_start: bool,
 }
 
 free_tokenize_result :: proc(result: ^Result) {
@@ -92,18 +89,26 @@ tokenize_chunk :: proc(chunk: string) -> ^Result {
     tokenizer.result = new(Result)
     tokenizer.runes = utf8.string_to_runes(chunk)
     tokenizer.rune_count = len(tokenizer.runes)
+    tokenizer.at_line_start = true
+
+    // for r in tokenizer.runes {
+    //     fmt.print(r)
+    // }
 
     for !is_at_end(&tokenizer) {
         scan_token(&tokenizer)
     }
-    add_token(&tokenizer, Token{type = .EOF})
+    add_token(&tokenizer, .EOF)
 
     return tokenizer.result
 }
 
 print_tokenize_tokens :: proc(results: ^Result) {
     for token in &results.tokens {
-        fmt.println(debug_text(&token))
+        fmt.print(debug_text(&token))
+        if token.type == .Newline {
+            fmt.println()
+        }
     }
     fmt.println()
 }
@@ -120,7 +125,29 @@ print_tokenize_errors :: proc(results: ^Result) {
 }
 
 scan_token :: proc(tokenizer: ^Tokenizer) {
-    c := tokenizer.runes[tokenizer.current]
+    if tokenizer.at_line_start {
+        // TODO allow user to define tab as x spaces
+        // Maybe something like #tab space 4
+        // or #tab tab 2 if the user likes to uses multiple tabs for some reason
+        // would be best if we could infer this
+        for match(tokenizer, "\t") || match(tokenizer, "    ") {
+            add_token(tokenizer, .Tab)
+        }
+        
+        if peek(tokenizer, 0) == ' ' {
+            error(
+                tokenizer,
+                .Misaligned_Tab, 
+                "Tab spacing is misaligned. Unexpected space",
+            )
+        }
+    }
+    
+    if is_at_end(tokenizer) {
+        return
+    }
+
+    c := peek(tokenizer, 0)
     if match(tokenizer, "/*") {
         nest := 1
         for !is_at_end(tokenizer) && nest > 0 {
@@ -135,10 +162,11 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
             }
         }
         if is_at_end(tokenizer) && nest > 0 {
-            error(tokenizer, Error {
-                type = .Comment_Missing_End,
-                text = "Multiline comment missing corresponding ending \"*/\"",
-            })
+            error(
+                tokenizer, 
+                .Comment_Missing_End,
+                "Multiline comment missing corresponding ending \"*/\"",
+            )
         }
     }
     else if match(tokenizer, "//") {
@@ -148,34 +176,31 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
     }
     else if c == '(' {
         advance(tokenizer)
-        add_token(tokenizer, Token{type = .Left_Paren})
+        add_token(tokenizer, .Left_Paren)
     }
     else if c == ')' { 
         advance(tokenizer)
-        add_token(tokenizer, Token{type = .Right_Paren})
+        add_token(tokenizer, .Right_Paren)
     }
     else if c == ':' {
         advance(tokenizer)
-        add_token(tokenizer, Token{type = .Colon})
+        add_token(tokenizer, .Colon)
     }
     else if c == '=' { 
         advance(tokenizer)
-        add_token(tokenizer, Token{type = .Equals})
-    }
-    else if match(tokenizer, "    ") || match(tokenizer, '\t') {
-        add_token(tokenizer, Token{type = .Tab})
+        add_token(tokenizer, .Equals)
     }
     else if match(tokenizer, "+") {
-        add_token(tokenizer, Token{type = .Add})
+        add_token(tokenizer, .Add)
     }
     else if match(tokenizer, "-") {
-        add_token(tokenizer, Token{type = .Subtract})
+        add_token(tokenizer, .Subtract)
     }
     else if match(tokenizer, "*") {
-        add_token(tokenizer, Token{type = .Multiply})
+        add_token(tokenizer, .Multiply)
     }
     else if match(tokenizer, "/") {
-        add_token(tokenizer, Token{type = .Divide})
+        add_token(tokenizer, .Divide)
     }
     else if c == ' ' {
         // Ignore
@@ -186,7 +211,7 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
     }
     else if c == '.' {
         advance(tokenizer)
-        add_token(tokenizer, Token{type = .Dot})
+        add_token(tokenizer, .Dot)
     }
     else if match_identifier(tokenizer) {
         // Done
@@ -197,20 +222,19 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
     }
     else if c == '\n' {
         advance(tokenizer)
-        add_token(tokenizer, Token{type = .Newline})
+        add_token(tokenizer, .Newline)
+        tokenizer.at_line_start = true
     }
     else {
         builder := strings.builder_make(0, 16)
         consume_until_separator(tokenizer, &builder)
         str := strings.to_string(builder)
-        add_token(tokenizer, Token{
-            type = .Unknown, 
-            text = str,
-        })
-        error(tokenizer, Error {
-            type = .Unknown_Character,
-            text = fmt.aprintf("Unknown string: \"%s\"", str),
-        })
+        add_token(tokenizer, .Unknown, str)
+        error(
+            tokenizer,
+            .Unknown_Character,
+            fmt.aprintf("Unknown string: \"%s\"", str),
+        )
     }
 }
 
@@ -224,6 +248,13 @@ is_digit :: proc(r: rune) -> bool {
 
 is_separator :: proc(r: rune) -> bool {
     return r == ' ' || r == '\t' || r == '\n' || r == '\r'
+}
+
+is_operator :: proc(type: Type) -> bool {
+    return type == .Add || 
+        type == .Subtract || 
+        type == .Multiply || 
+        type == .Divide
 }
 
 match_number :: proc(tokenizer: ^Tokenizer) -> bool {
@@ -251,10 +282,14 @@ match_number :: proc(tokenizer: ^Tokenizer) -> bool {
                 // We've encountered two decimals in a single number
                 consume_until_separator(tokenizer, &builder)
     
-                error(tokenizer, Error {
-                    type = .Malformed_Number,
-                    text = fmt.aprintf("Malformed number: \"%s\"", strings.to_string(builder))
-                })
+                error(
+                    tokenizer, 
+                    .Malformed_Number,
+                    fmt.aprintf(
+                        "Malformed number: \"%s\"", 
+                        strings.to_string(builder),
+                    ),
+                )
             }
         }
         else {
@@ -262,17 +297,13 @@ match_number :: proc(tokenizer: ^Tokenizer) -> bool {
         }
     }
 
-    add_token(tokenizer, Token{
-        type = .Number,
-        text = strings.to_string(builder)
-    })
+    add_token(tokenizer, .Number, strings.to_string(builder))
     return true
 }
 
 consume_until_separator :: proc(tokenizer: ^Tokenizer, builder: ^strings.Builder) {
     for !is_at_end(tokenizer) && 
-        !is_separator(tokenizer.runes[tokenizer.current]
-    ) {
+        !is_separator(tokenizer.runes[tokenizer.current]) {
         strings.write_rune(builder, advance(tokenizer))
     }
 }
@@ -300,10 +331,7 @@ match_identifier :: proc(tokenizer: ^Tokenizer) -> bool {
             break
         }
     }
-    add_token(tokenizer, Token{
-        type = .Identifier,
-        text = strings.to_string(builder),
-    })
+    add_token(tokenizer, .Identifier, strings.to_string(builder))
 
     return true
 }
@@ -321,7 +349,7 @@ match_rune :: proc(tokenizer: ^Tokenizer, expected: rune) -> bool {
         return false
     }
     
-    tokenizer.current += 1
+    advance(tokenizer)
     return true
 }
 
@@ -337,12 +365,26 @@ match_string :: proc(tokenizer: ^Tokenizer, expected: string) -> bool {
         i += 1
     }
 
-    tokenizer.current += i
+    advance(tokenizer, i)
     return true
 }
 
-add_token :: proc(tokenizer: ^Tokenizer, token: Token) {
-    append(&tokenizer.result.tokens, token)
+add_token_no_text :: proc(tokenizer: ^Tokenizer, type: Type) {
+    append(&tokenizer.result.tokens, Token {
+        type = type,
+    })
+}
+
+add_token_text :: proc(tokenizer: ^Tokenizer, type: Type, text: string) {
+    append(&tokenizer.result.tokens, Token {
+        type = type,
+        text = text,
+    })
+}
+
+add_token :: proc {
+    add_token_no_text,
+    add_token_text,
 }
 
 is_at_end :: proc(tokenizer: ^Tokenizer) -> bool {
@@ -353,7 +395,7 @@ peek :: proc(tokenizer: ^Tokenizer, offset: int) -> rune {
     index := tokenizer.current + offset
     
     if index >= tokenizer.rune_count {
-        // Reach end of source
+        // Reached end of source
         return rune(0)
     }
     return tokenizer.runes[index]
@@ -367,15 +409,20 @@ advance :: proc {
 advance_single :: proc(tokenizer: ^Tokenizer) -> rune {
     ret := tokenizer.runes[tokenizer.current]
     tokenizer.current += 1
+    tokenizer.at_line_start = false
     return ret
 }
 
 advance_many :: proc(tokenizer: ^Tokenizer, count: int) {
     tokenizer.current += count
+    tokenizer.at_line_start = false
 }
 
-error :: proc(tokenizer: ^Tokenizer, error: Error) {
-    append(&tokenizer.result.errors, error)
+error :: proc(tokenizer: ^Tokenizer, type: Error_Type, text: string) {
+    append(&tokenizer.result.errors, Error {
+        type = type,
+        text = text,
+    })
 }
 
 // Give a representation of the token for a message to the user

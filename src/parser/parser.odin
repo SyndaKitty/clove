@@ -25,6 +25,9 @@ import tok "../tokenizer"
 // in case 2 it would be {type = End of Line, context = Operator}
 // Separately, we could track if the error has already been reported ??
 
+// For now the error approach is that 
+// the most specific calls will do error reporting
+
 Result_Type :: enum {
     Success,
     Error,
@@ -55,7 +58,7 @@ Parser :: struct {
 parse_chunk :: proc(chunk: string) -> ^Result {
     tokenize_result := tok.tokenize_chunk(chunk)
 
-    // print_tok.tokens(tok.result)
+    tok.print_tokenize_tokens(tokenize_result)
     // TODO: These should be passed on as parser errors
     tok.print_tokenize_errors(tokenize_result)
 
@@ -78,6 +81,8 @@ print_parse_errors :: proc(results: ^Result) {
 
 parse_program :: proc(parser: ^Parser) {
     log.trace("parse_program")
+    trace_current_parse_state(parser)
+    
     for {
         statement, ok := parse_statement(parser)
         if !ok {
@@ -88,78 +93,37 @@ parse_program :: proc(parser: ^Parser) {
     
     if !is_at_end(parser) {
         t := peek(parser, 0)
-        add_error(parser, Error {
-            type = .Unexpected_Token,
-            text = fmt.aprintf(
-                "Unexpected token: [%s]\"%s\". Expected EOF", 
-                t.type, t.text),
-        })
+        error(parser, .Unexpected_Token, fmt.aprintf(
+            "Unexpected token: [%s]\"%s\". Expected EOF", 
+            t.type, t.text),
+        )
     }
 }
 
 declaration_start_pattern :: []tok.Type{.Identifier, .Colon}
-inferred_declaration_pattern :: []tok.Type{.Identifier, .Colon, .Equals}
-explicit_declaration_pattern :: []tok.Type{.Identifier, .Colon, .Identifier}
 assignment_pattern :: []tok.Type{.Identifier, .Equals}
 
 parse_statement :: proc(parser: ^Parser) -> (^ast.Statement, bool) {
+    log.trace()
     log.trace("parse_statement")
+    
+    skip_empty_lines(parser)
+
     for !is_at_end(parser) {
         trace_current_parse_state(parser)
         
         t := peek(parser, 0)
-        log.trace("Starting statement with: ", tok.descriptive_text(t))
         
         if match(parser, declaration_start_pattern, true) {
-            if match(parser, inferred_declaration_pattern, true) {
-                decl, ok := parse_inferred_declaration(parser)
-                
-                if !ok {
-                    consume_until_type(parser, .Newline)
-                    return nil, false
-                }
-                else {
-                    return cast(^ast.Statement)decl, true
-                }
-            }
-            else if match(parser, explicit_declaration_pattern, true) {
-                // TODO
-                return nil, false
-            }
-            else {
-                // TODO better error message
-                unexpected_token(parser, "Expected a type or \"=\" after :")
-                consume_until_type(parser, .Newline)
-                return nil, false
-            }
+            decl, ok := parse_declaration(parser)
+            return cast(^ast.Statement)decl, ok
         }
         else if match(parser, assignment_pattern, true) {
             assign, ok := parse_assignment(parser)
-
-            if !ok {
-                consume_until_type(parser, .Newline)
-                return nil, false
-            }
-            else {
-                return cast(^ast.Statement)assign, true
-            }
+            return cast(^ast.Statement)assign, ok
         }
-        else if t.type == .Identifier {
-            // Expression - Identifier
+        else if t.type == .Identifier || t.type == .Number {
             expr, ok := parse_expression(parser)
-            if !ok {
-                consume_until_type(parser, .Newline)
-                return nil, false
-            }
-            return cast(^ast.Statement)expr, true
-        }
-        else if t.type == .Number {
-            // Expression = Number literal
-            expr, ok := parse_expression(parser)
-            if !ok {
-                consume_until_type(parser, .Newline)
-                return nil, false
-            }
             return cast(^ast.Statement)expr, true
         }
         else if t.type == .Newline {
@@ -174,7 +138,7 @@ parse_statement :: proc(parser: ^Parser) -> (^ast.Statement, bool) {
                 tok.descriptive_text(t),
             )
             unexpected_token(parser, err_text)
-            consume_until_type(parser, .Newline)
+            consume_line(parser)
             advance(parser)
         }
     }
@@ -182,34 +146,141 @@ parse_statement :: proc(parser: ^Parser) -> (^ast.Statement, bool) {
     return nil, false
 }
 
-expect_token :: proc(
-    parser: ^Parser, 
-    offset: int, 
-    type: tok.Type, 
-    ignore_whitespace: bool,
-) -> (^tok.Token, bool) {
+inferred_declaration_pattern :: []tok.Type{.Identifier, .Colon, .Equals}
+explicit_declaration_pattern :: []tok.Type{.Identifier, .Colon, .Identifier}
 
-    if ignore_whitespace {
-        if offset > 0 {
-            fmt.printf("UNEXPECTED SCENARIO, IGNORE WHITESPACE BUT LOOKING AHEAD. NEED TO IMPLEMENT")
-        }
-
-        consume_whitespace(parser)
+parse_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) {
+    if match(parser, inferred_declaration_pattern, true) {
+        decl, ok := parse_inferred_declaration(parser)
+        return decl, true
     }
-
-    t := peek(parser, offset)
-    if t.type != type {
-        add_error(parser, Error {
-            type = .Unexpected_Token,
-            text = fmt.aprintf(
-                "Unexpected %s. Expected \"%s\"", 
-                tok.descriptive_text(t), 
-                type,
-            ),
-        })
+    else if match(parser, explicit_declaration_pattern, true) {
+        // TODO
+        consume_line(parser)
         return nil, false
     }
-    return t, true
+    else {
+        // TODO better error message
+        unexpected_token(parser, "Expected a \"=\" or a type after :")
+        consume_line(parser)
+        return nil, false
+    }
+}
+
+parse_assignment :: proc(parser: ^Parser) -> (^ast.Assignment, bool) {
+    log.trace("parse_assignment")
+    assert(!is_at_end(parser))
+
+    trace_current_parse_state(parser)
+
+    name_token := peek(parser, 0)
+    advance(parser, len(assignment_pattern)) // identifier equals
+    identifier := ast.new_identifier(name_token)
+
+    expression, ok := parse_expression(parser)
+    if !ok {
+        return nil, false
+    }
+
+    return ast.new_assignment(identifier, expression), true
+}
+
+parse_expression :: proc(parser: ^Parser) -> (^ast.Expression, bool) {
+    log.trace("parse_expression")
+    trace_current_parse_state(parser)
+    
+    if is_at_end(parser) {
+        unexpected_token(parser, "Unexpected end of file. Expected expression")
+        return nil, false
+    }
+
+    val, ok := parse_value(parser)
+    if !ok {
+        return val, ok
+    }
+
+    node := cast(^ast.Expression)val
+
+    for !is_at_end(parser) && tok.is_operator(peek(parser, 0).type) {
+        node, ok = parse_operation(parser, val)
+        if !ok {
+            return nil, false
+        }
+    }
+    
+    return node, true
+}
+
+parse_operation :: proc(
+    parser: ^Parser, 
+    prev_node: ^ast.Expression,
+) -> (^ast.Expression, bool)
+{
+    //if prev_node.derived_expr.
+    return nil, false
+}
+
+parse_inferred_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) {
+    log.trace("parse_inferred_declaration")
+    assert(!is_at_end(parser))  
+    trace_current_parse_state(parser)
+
+    iden := ast.new_identifier(peek(parser, 0))
+    advance(parser, len(inferred_declaration_pattern))
+
+    expr, ok := parse_expression(parser)
+    if !ok {
+        // TODO better error
+        unexpected_token(parser, "Invalid expression")
+        return nil, false
+    }
+    
+    return ast.new_declaration(iden, expr), true
+}
+
+// Literal or identifier
+parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
+    log.trace("parse_value")
+    trace_current_parse_state(parser)
+
+    if is_at_end(parser) {
+        return nil, false
+    }
+    
+    t := peek(parser, 0)
+    if t.type == .Number {
+        advance(parser)
+        return cast(^ast.Value)ast.new_number_literal(t), true
+    }
+    else if t.type == .Identifier {
+        advance(parser)
+        return cast(^ast.Value)ast.new_identifier(t), true
+    }
+    else {
+        unexpected_token(parser, fmt.aprintf("Unexpected token [%s]", tok.descriptive_text(t)))
+        return nil, false
+    }
+}
+
+skip_empty_lines :: proc(parser: ^Parser) {
+    for {
+        i := 0
+        for ; peek(parser, i).type == .Tab; i += 1 {}
+        
+        t := peek(parser, i).type
+        if t == .Newline {
+            log.trace("Skipping empty line")
+            advance(parser, i + 1)
+        }
+        else if t == .EOF {
+            log.trace("Skipping empty line")
+            advance(parser, i)
+            return
+        }
+        else {
+            return
+        }
+    }
 }
 
 match :: proc(
@@ -239,97 +310,6 @@ is_statement_terminator :: proc(token: ^tok.Token) -> bool {
     return token.type == .Newline || token.type == .EOF
 }
 
-parse_assignment :: proc(parser: ^Parser) -> (^ast.Assignment, bool) {
-    log.trace("parse_assignment")
-    assert(!is_at_end(parser))
-
-    name_token := peek(parser, 0)
-    advance(parser, len(assignment_pattern)) // identifier equals
-    identifier := ast.new_identifier(name_token)
-
-    expression, ok := parse_expression(parser)
-    if !ok {
-        return nil, false
-    }
-
-    return ast.new_assignment(identifier, expression), true
-}
-
-parse_expression :: proc(parser: ^Parser) -> (^ast.Expression, bool) {
-    log.trace("parse_expression")
-    trace_current_parse_state(parser)
-    
-    if is_at_end(parser) {
-        unexpected_token(parser, "Unexpected end of file. Expected expression")
-        return nil, false
-    }
-
-    val, ok := parse_value(parser)
-    if !ok {
-        consume_until_type(parser, .Newline)
-        return nil, false
-    }
-
-    node := val
-
-    for !is_at_end(parser) && tok.is_operator(peek(parser, 0).type) {
-        node, ok = parse_operation(parser, val)
-        if !ok {
-            return nil, false
-        }
-    }
-    return node, true
-}
-
-parse_operation :: proc(
-    parser: ^Parser, 
-    prev_node: ^ast.Expression,
-) -> (^ast.Expression, bool)
-{
-    return nil, false
-}
-
-parse_inferred_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) {
-    log.trace("parse_inferred_declaration")
-    assert(!is_at_end(parser))  
-    
-    iden := ast.new_identifier(peek(parser, 0))
-    advance(parser, len(inferred_declaration_pattern))
-
-    expr, ok := parse_expression(parser)
-    if !ok {
-        // TODO better error
-        unexpected_token(parser, "Invalid expression")
-        return nil, false
-    }
-    
-    return ast.new_declaration(iden, expr), true
-}
-
-// Literal or identifier
-parse_value :: proc(parser: ^Parser) -> (^ast.Expression, bool) {
-    log.trace("parse_value")
-    
-    if is_at_end(parser) {
-        return nil, false
-    }
-    
-    t := peek(parser, 0)
-    res: ^ast.Expression
-    if t.type == .Number {
-        advance(parser)
-        return cast(^ast.Expression)ast.new_number_literal(t), true
-    }
-    else if t.type == .Identifier {
-        advance(parser)
-        return cast(^ast.Expression)ast.new_identifier(t), true
-    }
-    else {
-        unexpected_token(parser, fmt.aprintf("Unexpected token [%s]", tok.descriptive_text(t)))
-        return nil, false
-    }
-}
-
 advance_single :: proc(parser: ^Parser) -> tok.Token {
     res := parser.tokens[parser.current]
     parser.current += 1
@@ -351,6 +331,14 @@ advance :: proc {
     advance_many,
 }
 
+expect :: proc(parser: ^Parser, type: tok.Type) -> (bool, ^tok.Token) {
+    t := peek(parser, 0)
+    if t.type != type {
+        unexpected_token(parser, t, type)
+        return false, nil
+    }
+    return true, t
+}
 
 peek :: proc(parser: ^Parser, offset: int) -> ^tok.Token {
     if parser.current + offset >= parser.token_count {
@@ -363,22 +351,31 @@ is_at_end :: proc(parser: ^Parser) -> bool {
     return parser.current + 1 >= parser.token_count
 }
 
-add_error :: proc(parser: ^Parser, error: Error) {
-    append(&parser.result.errors, error)
+error :: proc(parser: ^Parser, type: Error_Type, text: string) {
+    append(&parser.result.errors, Error {
+        type = type,
+        text = text,
+    })
 }
 
-unexpected_token_token :: proc(parser: ^Parser, token: ^tok.Token) {
-    add_error(parser, Error {
-        type = .Unexpected_Token,
-        text = token.text,
-    })
+unexpected_token_token :: proc(
+    parser: ^Parser, 
+    token: ^tok.Token, 
+    expected: tok.Type,
+) {
+    expected_token := tok.Token {
+        type = expected,
+    }
+    text := fmt.aprintf(
+        "Unexpected %s. Expected %s", 
+        tok.descriptive_text(token),
+        tok.descriptive_text(&expected_token),
+    )
+    error(parser, .Unexpected_Token, text)
 }
 
 unexpected_token_message :: proc(parser: ^Parser, text: string) {
-    add_error(parser, Error {
-        type = .Unexpected_Token,
-        text = text,
-    })
+    error(parser, .Unexpected_Token, text)
 }
 
 unexpected_token :: proc {
@@ -395,6 +392,10 @@ consume_whitespace :: proc(parser: ^Parser) {
             break
         }
     }
+}
+
+consume_line :: proc(parser: ^Parser) {
+    consume_until_type(parser, .Newline)
 }
 
 consume_until_type :: proc(parser: ^Parser, type: tok.Type) -> int {

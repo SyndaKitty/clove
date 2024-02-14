@@ -69,5 +69,4 @@ run_clove_file :: proc(filename: string) {
         fmt.printf("Unable to read file %s\n", valid_filename)
         return
     }
-    log.trace("Test3")
 }
