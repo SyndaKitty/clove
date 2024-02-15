@@ -26,18 +26,18 @@ Node :: struct {
 
 // Base Types
 Statement :: struct {
-    using statement_base: Node,
+    using base: Node,
     derived_statement: Any_Statement,
 }
 
 Expression :: struct {
-    using expression_base: Node,
+    using base: Node,
     derived_expr: Any_Expr,
 }
 
 // Statements
 Declaration :: struct {
-    using declaration_base: Statement,
+    using stmt: Statement,
     identifier: ^Identifier,
     expression: ^Expression,
 }
@@ -101,7 +101,7 @@ Number_Literal :: struct {
     number: ^tok.Token,
 }
 
-new_number_literal :: proc(t: ^tok.Token) -> ^Node {
+new_number_literal :: proc(t: ^tok.Token) -> ^Number_Literal {
     node := new(Number_Literal)
     node.number = t
     return node
@@ -128,7 +128,7 @@ new_binary :: proc(
 }
 
 Unary_Op :: struct {
-    using expr: Expression,
+    using val: Value,
     subject: ^Expression,
     operator: ^tok.Token,
 }
@@ -137,6 +137,20 @@ new_unary :: proc(subject: ^Expression, operator: ^tok.Token) -> ^Unary_Op{
     ast := new(Unary_Op)
     ast.subject = subject
     ast.operator = operator
+    return ast
+}
+
+Func_Call :: struct {
+    using val: Value,
+    func: ^Identifier,
+    arg: ^Expression,
+}
+
+new_func_call :: proc(func_name: ^Identifier, arg: ^Identifier) -> ^Func_Call {
+    ast := new(Func_Call)
+    ast.func = func_name
+    ast.arg = arg
+
     return ast
 }
 
@@ -155,8 +169,7 @@ Any_Node :: union {
     ^Binary_Op,
     ^Unary_Op,
     ^Number_Literal,
-    //^Func_Call,
-    
+    ^Func_Call,
 }
 
 Any_Statement :: union {
@@ -170,13 +183,14 @@ Any_Expr :: union {
     ^Number_Literal,
     ^Binary_Op,
     ^Unary_Op,
-    //Func_Call TODO,
+    ^Func_Call,
 }
 
 Any_Value :: union {
     ^Identifier,
     ^Number_Literal,
-    // Func_Call
+    ^Unary_Op,
+    ^Func_Call
 }
 
 new :: proc($T: typeid) -> ^T {
@@ -194,14 +208,14 @@ new :: proc($T: typeid) -> ^T {
 }
 
 is_value :: proc(n: ^Node) -> bool {
-    {
-        _, ok := n.derived.(^Number_Literal) 
-        if ok do return true
-    }
-    {
-        _, ok := n.derived.(^Identifier) 
-        if ok do return true
-    }
+    ok: bool
+    
+    _, ok = n.derived.(^Number_Literal) 
+    if ok do return true
+    
+    
+    _, ok = n.derived.(^Identifier) 
+    if ok do return true
     
     return false
 }

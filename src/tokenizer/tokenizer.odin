@@ -11,6 +11,7 @@ import "../log"
 Result :: struct {
     tokens: [dynamic]Token,
     errors: [dynamic]Error,
+    lines: [dynamic][]rune,
 }
 
 Error_Type :: enum {
@@ -23,6 +24,9 @@ Error_Type :: enum {
 Error :: struct {
     type: Error_Type,
     text: string,
+    line_number: int,
+    from: int,
+    to: int,
 }
 
 Type :: enum {
@@ -51,7 +55,6 @@ Token :: struct {
     type: Type,
     text: string,
     
-    // TODO populate the below fields
     line_number: int,
     
     // indices within the line
@@ -68,11 +71,11 @@ Tokenizer :: struct {
     current: int,
 
     // line index of the start of the current token
-    start: int,
+    token_start: int,
     line_number: int,
     line_index: int,
 
-    at_line_start: bool,
+    line_start: int,
 }
 
 free_tokenize_result :: proc(result: ^Result) {
@@ -89,11 +92,6 @@ tokenize_chunk :: proc(chunk: string) -> ^Result {
     tokenizer.result = new(Result)
     tokenizer.runes = utf8.string_to_runes(chunk)
     tokenizer.rune_count = len(tokenizer.runes)
-    tokenizer.at_line_start = true
-
-    // for r in tokenizer.runes {
-    //     fmt.print(r)
-    // }
 
     for !is_at_end(&tokenizer) {
         scan_token(&tokenizer)
@@ -116,25 +114,33 @@ print_tokenize_tokens :: proc(results: ^Result) {
 print_tokenize_errors :: proc(results: ^Result) {
     for error in results.errors {
         if len(error.text) > 0 {
-            fmt.printf("[%s]: [%s]\n", error.type, error.text)
+            fmt.println(error.text)
         }
         else {
             fmt.printf("[%s]\n", error.type)
         }
+
+        for r in results.lines[error.line_number] {
+            fmt.print(r)
+        }
+        for i := 0; i < error.from; i += 1 {
+            fmt.print(" ")
+        }
+        fmt.println("^")
     }
 }
 
 scan_token :: proc(tokenizer: ^Tokenizer) {
-    if tokenizer.at_line_start {
+    if tokenizer.line_index == 0 {
         // TODO allow user to define tab as x spaces
-        // Maybe something like #tab space 4
-        // or #tab tab 2 if the user likes to uses multiple tabs for some reason
+        // Maybe something like #indent space 4
+        // or #indent tab 2 if the user likes to uses multiple tabs for some reason
         // would be best if we could infer this
         for match(tokenizer, "\t") || match(tokenizer, "    ") {
             add_token(tokenizer, .Tab)
         }
         
-        if peek(tokenizer, 0) == ' ' {
+        if peek(tokenizer) == ' ' {
             error(
                 tokenizer,
                 .Misaligned_Tab, 
@@ -144,21 +150,26 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
     }
     
     if is_at_end(tokenizer) {
+        next_line(tokenizer)
         return
     }
 
-    c := peek(tokenizer, 0)
+    c := peek(tokenizer)
     if match(tokenizer, "/*") {
         nest := 1
         for !is_at_end(tokenizer) && nest > 0 {
             if match(tokenizer, "/*") {
                 nest += 1
             }
-            else if match(tokenizer, "*/") {
+            else if match(tokenizer, "*/", false) {
                 nest -= 1
             }
+            else if peek(tokenizer) == '\n' {
+                advance(tokenizer, false)
+                next_line(tokenizer)
+            }
             else {
-                advance(tokenizer)
+                advance(tokenizer, false)
             }
         }
         if is_at_end(tokenizer) && nest > 0 {
@@ -170,8 +181,8 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
         }
     }
     else if match(tokenizer, "//") {
-        for !is_at_end(tokenizer) && tokenizer.runes[tokenizer.current] != '\n' {
-            advance(tokenizer)
+        for !is_at_end(tokenizer) && peek(tokenizer) != '\n' {
+            advance(tokenizer, false)
         }
     }
     else if c == '(' {
@@ -204,7 +215,7 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
     }
     else if c == ' ' {
         // Ignore
-        advance(tokenizer)
+        advance(tokenizer, false)
     }
     else if match_number(tokenizer) {
         // Done
@@ -218,12 +229,12 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
     }
     else if c == '\r' {
         // Ignore
-        advance(tokenizer)
+        advance(tokenizer, false)
     }
     else if c == '\n' {
         advance(tokenizer)
         add_token(tokenizer, .Newline)
-        tokenizer.at_line_start = true
+        next_line(tokenizer)
     }
     else {
         builder := strings.builder_make(0, 16)
@@ -236,6 +247,24 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
             fmt.aprintf("Unknown string: \"%s\"", str),
         )
     }
+
+    if is_at_end(tokenizer) {
+        next_line(tokenizer)
+        return
+    }
+}
+
+next_line :: proc(tokenizer: ^Tokenizer) {
+    tokenizer.line_number += 1
+    add_line(tokenizer)
+    tokenizer.line_start = tokenizer.current
+    tokenizer.line_index = 0
+    tokenizer.token_start = 0
+}
+
+add_line :: proc(tokenizer: ^Tokenizer) {
+    line_runes := tokenizer.runes[tokenizer.line_start:tokenizer.current]
+    append(&tokenizer.result.lines, line_runes)
 }
 
 is_letter :: proc(r: rune) -> bool {
@@ -353,7 +382,7 @@ match_rune :: proc(tokenizer: ^Tokenizer, expected: rune) -> bool {
     return true
 }
 
-match_string :: proc(tokenizer: ^Tokenizer, expected: string) -> bool {
+match_string :: proc(tokenizer: ^Tokenizer, expected: string, capture := true) -> bool {
     i := 0
     for r in expected {
         if tokenizer.current + i >= tokenizer.rune_count {
@@ -365,21 +394,31 @@ match_string :: proc(tokenizer: ^Tokenizer, expected: string) -> bool {
         i += 1
     }
 
-    advance(tokenizer, i)
+    advance(tokenizer, i, capture)
     return true
 }
 
 add_token_no_text :: proc(tokenizer: ^Tokenizer, type: Type) {
     append(&tokenizer.result.tokens, Token {
         type = type,
+        start = tokenizer.token_start,
+        end = tokenizer.line_index,
+        line_number = tokenizer.line_number,
     })
+    
+    tokenizer.token_start = tokenizer.line_index
 }
 
 add_token_text :: proc(tokenizer: ^Tokenizer, type: Type, text: string) {
     append(&tokenizer.result.tokens, Token {
         type = type,
         text = text,
+        start = tokenizer.token_start,
+        end = tokenizer.line_index,
+        line_number = tokenizer.line_number,
     })
+    
+    tokenizer.token_start = tokenizer.line_index
 }
 
 add_token :: proc {
@@ -391,7 +430,7 @@ is_at_end :: proc(tokenizer: ^Tokenizer) -> bool {
     return tokenizer.current >= tokenizer.rune_count
 }
 
-peek :: proc(tokenizer: ^Tokenizer, offset: int) -> rune {
+peek :: proc(tokenizer: ^Tokenizer, offset := 0) -> rune {
     index := tokenizer.current + offset
     
     if index >= tokenizer.rune_count {
@@ -401,28 +440,47 @@ peek :: proc(tokenizer: ^Tokenizer, offset: int) -> rune {
     return tokenizer.runes[index]
 }
 
-advance :: proc {
-    advance_single,
-    advance_many,
-}
-
-advance_single :: proc(tokenizer: ^Tokenizer) -> rune {
+advance_single :: proc(tokenizer: ^Tokenizer, capture := true) -> rune {
     ret := tokenizer.runes[tokenizer.current]
     tokenizer.current += 1
-    tokenizer.at_line_start = false
+    tokenizer.line_index += 1
+    if !capture {
+        tokenizer.token_start = tokenizer.line_index
+    }
     return ret
 }
 
-advance_many :: proc(tokenizer: ^Tokenizer, count: int) {
+advance_many :: proc(tokenizer: ^Tokenizer, count: int, capture := true) {
     tokenizer.current += count
-    tokenizer.at_line_start = false
+    tokenizer.line_index += count
+    if !capture {
+        tokenizer.token_start = tokenizer.line_index
+    }
+}
+
+advance :: proc {
+    advance_single,
+    advance_many,
 }
 
 error :: proc(tokenizer: ^Tokenizer, type: Error_Type, text: string) {
     append(&tokenizer.result.errors, Error {
         type = type,
         text = text,
+        line_number = tokenizer.line_number,
+        from = tokenizer.current,
+        to = tokenizer.current,
     })
+}
+ 
+precedence :: proc(t: ^Token) -> int {
+    #partial switch t.type {
+        case .Multiply: return 10
+        case .Divide:   return 10
+        case .Add:      return 5
+        case .Subtract: return 5
+        case: return 0
+    }
 }
 
 // Give a representation of the token for a message to the user

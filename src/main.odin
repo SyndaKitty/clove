@@ -56,9 +56,7 @@ run_clove_file :: proc(filename: string) {
     }
 
     if contents, ok := os.read_entire_file(valid_filename); ok {
-        contents_string := strings.clone_from(contents)
-        defer delete(contents)
-        defer delete(contents_string)
+        contents_string, _ := strings.replace_all(string(contents), "\r", "")
         
         interpreter: Interpreter
         result: Interpret_Result
