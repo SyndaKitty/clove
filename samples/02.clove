@@ -15,4 +15,5 @@ Assignment!
     wow~!
 */
 num_3 = num + num_3
+num_4 := num_3 + num + num2
 println(num_3)

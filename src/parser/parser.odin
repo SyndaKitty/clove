@@ -216,6 +216,9 @@ parse_operation :: proc(
     prev_node: ^ast.Expression,
 ) -> (^ast.Expression, bool)
 {
+    log.trace("parse_operation")
+    trace_current_parse_state(parser)
+
     op := peek(parser)
     if !tok.is_operator(op.type) {
         unexpected_token_message(
@@ -237,9 +240,21 @@ parse_operation :: proc(
     if ast.is_value(&prev_node.base) {
         return ast.new_binary(prev_node, val, op), true
     }
-    // TODODODODODODODODODODODODODODODODODODODODODODODODODODODODODODODODODODODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
-    // if tok.precedence() {
-    // }
+    else if bin, ok := prev_node.derived.(^ast.Binary_Op); ok {
+        if tok.precedence(bin.operator) >= tok.precedence(op) {
+            return ast.new_binary(prev_node, val, op), true
+        }
+        else {
+            bin.right = ast.new_binary(bin.right, val, op)
+            return prev_node, true
+        }
+    }
+    else {
+        assert(
+            false, 
+            "Unexpected arg to parse_operation. Not a value or binary op",
+        )
+    }
     
     return nil, false
 }
@@ -282,10 +297,6 @@ parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
     }
     else if t.type == .Identifier {
         advance(parser)
-        ok, _ := expect(parser, .Newline)
-        if !ok {
-            consume_line(parser)
-        }
         return cast(^ast.Value)ast.new_identifier(t), true
     }
     else {
