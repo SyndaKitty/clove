@@ -7,7 +7,7 @@ import "core:strings"
 import tok "../tokenizer"
 import "../log"
 
-AST :: struct {
+Program :: struct {
     statements: [dynamic]^Statement,
 }
 
@@ -121,16 +121,6 @@ new_binary :: proc(
     operator: ^tok.Token,
 ) -> ^Binary_Op 
 {
-    buf := strings.builder_make(0, 100)
-    b := &buf
-    strings.write_string(b, "Creating binary with left=(")
-    print_node(b, left)
-    strings.write_string(b, ") right=(")
-    print_node(b, right)
-    strings.write_string(b, ") op=")
-    strings.write_string(b, operator.text)
-    log.trace(strings.to_string(buf))
-    
     ast := new(Binary_Op)
     ast.left = left
     ast.right = right

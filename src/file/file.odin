@@ -1,11 +1,11 @@
-package main
+package file
 
 import "core:path/filepath"
 import "core:fmt"
 import "core:os"
 import "core:strings"
 
-import "log"
+import "../log"
 
 // Find the closest matching file
 // Tries all

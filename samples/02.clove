@@ -1,7 +1,7 @@
 // Assignments, addition, expressions, multi-line comment
 
 a := 5.0
-println(num)
+println(a)
 
 b := 1.5
 b = 2.5

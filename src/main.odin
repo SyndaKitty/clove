@@ -7,8 +7,12 @@ import "core:mem"
 
 import "log"
 import "ast"
+import "file"
+import interp "interpreter"
 
 main :: proc() {
+    log.set_level(.None)
+
     track: mem.Tracking_Allocator
     mem.tracking_allocator_init(&track, context.allocator)
     context.allocator = mem.tracking_allocator(&track)
@@ -34,7 +38,6 @@ main :: proc() {
         */
     }
 
-
     if len(os.args) > 2 {
         fmt.println("Usage: clove [file]")
     }
@@ -42,12 +45,12 @@ main :: proc() {
         run_clove_file(os.args[1])
     }
     else if len(os.args) == 1 {
-        run_interpreter()
+        interp.run_interpreter()
     }
 }
 
 run_clove_file :: proc(filename: string) {
-    valid_filename, ok := find_file(filename)
+    valid_filename, ok := file.find_file(filename)
     defer delete(valid_filename)
     
     if !ok {
@@ -58,10 +61,7 @@ run_clove_file :: proc(filename: string) {
     if contents, ok := os.read_entire_file(valid_filename); ok {
         contents_string, _ := strings.replace_all(string(contents), "\r", "")
         
-        interpreter: Interpreter
-        result: Interpret_Result
-
-        interpret_chunk(contents_string, &result, &interpreter)
+        interp.interpret_chunk(contents_string)
     }
     else {
         fmt.printf("Unable to read file %s\n", valid_filename)

@@ -9,21 +9,25 @@ import win "core:sys/windows"
 import "../ext"
 
 Level_Headers := [?]string{
+    "",
     "[TRACE]",
     "[DEBUG]",
     "[INFO ]",
     "[WARN ]",
     "[ERROR]",
     "[FATAL]",
+    "",
 }
 
 Level :: enum {
+    All,
     Trace,
     Debug,
     Info,
     Warn,
     Error,
     Fatal,
+    None,
 }
 
 @private
@@ -34,6 +38,12 @@ _log_to_file: bool = true
 
 @private
 _file_handle: os.Handle
+
+log_level := Level.Trace
+
+set_level :: proc(level: Level) {
+    log_level = level
+}
 
 init :: proc(log_to_file, log_to_console: bool) {
     if log_to_file {
@@ -47,26 +57,32 @@ init :: proc(log_to_file, log_to_console: bool) {
 }
 
 trace :: proc(args: ..any) {
+    if log_level > .Trace do return
     _write(level=.Trace, args=args)
 }
 
 debug :: proc(args: ..any) {
+    if log_level > .Debug do return
     _write(level=.Debug, args=args)
 }
 
 info :: proc(args: ..any) {
+    if log_level > .Info do return
     _write(level=.Info, args=args)
 }
 
 warn :: proc(args: ..any) {
+    if log_level > .Warn do return
     _write(level=.Warn, args=args)
 }
 
 error:: proc(args: ..any, location := #caller_location) {
+    if log_level > .Error do return
     _write(level=.Error, args=args, location=location)
 }
 
 fatal :: proc(args: ..any, location := #caller_location) {
+    if log_level > .Fatal do return
     _write(level=.Fatal, args=args, location=location)
     panic("", location)
 }
@@ -183,6 +199,7 @@ _create_log_file :: proc() {
         fmt.print(_format_message(level=.Error, args={"Unable to create log file at \"", file_path, "\", disabling log to file"}))
         return
     }
+    if log_level > .Info do return
     fmt.print(_format_message(.Info, "Logging to ", file_path))
 }
 
@@ -190,6 +207,7 @@ _create_log_file :: proc() {
 _close_log_file :: proc() {
     err := os.close(_file_handle)
     if err != os.ERROR_NONE { 
+        if log_level > .Error do return
         fmt.print(_format_message(.Error, "Unable to close file"))
     }
     else {

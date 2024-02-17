@@ -22,16 +22,36 @@ Analyzer :: struct {
     
 }
 
-// anaylze_ast :: proc(program: ast.AST) {
-//     for statement in program.statements {
-//         analyze(statement)
-//         // statement.derived_stmt.(^ast.Expression_Statement)
-//     }
-// }
+analyze_ast :: proc(program: Program) {
+    for stmt in program.statements {
+        analyze_node(stmt)
+    }
+}
 
-// analyze :: proc(node: ^ast.Node) {
-//     switch n in &node.derived {
-//         case ^Expression_Statement:
-//             n.
-//     }
-// }
+analyze_node :: proc(node: ^Node) {
+    #partial switch n in &node.derived_node {
+        // Statements
+        case ^Expression_Statement:
+            
+        
+        case ^Declaration:
+            
+
+        case ^Assignment:
+            
+
+        // Expressions
+        case ^Func_Call:
+            
+        case ^Identifier:
+            
+        case ^Number_Literal:
+            
+        case ^Unary_Op:
+            
+        case ^Binary_Op:
+            
+        case:
+            
+    }
+}

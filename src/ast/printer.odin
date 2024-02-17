@@ -5,7 +5,7 @@ import "core:fmt"
 
 buffer :: ^strings.Builder
 
-print_ast :: proc(program: AST) {
+print_ast :: proc(program: Program) {
     buffer := strings.builder_make(0, 256)
 
     for stmt in program.statements {

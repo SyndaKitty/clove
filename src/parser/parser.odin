@@ -45,7 +45,7 @@ Error :: struct {
 
 Result :: struct {
     errors: [dynamic]Error,
-    ast: ast.AST,
+    program: ast.Program,
 }
 
 Parser :: struct {
@@ -58,9 +58,9 @@ Parser :: struct {
 parse_chunk :: proc(chunk: string) -> ^Result {
     tokenize_result := tok.tokenize_chunk(chunk)
 
-    // tok.print_tokenize_tokens(tokenize_result)
+    // tok.print_tokens(tokenize_result)
     // TODO: These should be passed on as parser errors
-    tok.print_tokenize_errors(tokenize_result)
+    tok.print_errors(tokenize_result)
 
     parser := Parser {
         result = new(Result),
@@ -88,7 +88,7 @@ parse_program :: proc(parser: ^Parser) {
         if !ok {
             break
         }
-        append(&parser.result.ast.statements, statement)
+        append(&parser.result.program.statements, statement)
     }
     
     if !is_at_end(parser) {
@@ -124,7 +124,13 @@ parse_statement :: proc(parser: ^Parser) -> (^ast.Statement, bool) {
         }
         else if t.type == .Identifier || t.type == .Number {
             expr, ok := parse_expression(parser)
-            return cast(^ast.Statement)expr, true
+            if !ok {
+                return nil, false
+            }
+
+            stmt := ast.new(ast.Expression_Statement)
+            stmt.expression = expr
+            return &stmt.base_stmt, true
         }
         else if t.type == .Newline {
             // Ignore newlines
@@ -207,7 +213,7 @@ parse_expression :: proc(parser: ^Parser) -> (^ast.Expression, bool) {
             return nil, false
         }
     }
-    
+
     return node, true
 }
 
@@ -242,16 +248,13 @@ parse_operation :: proc(
     }
 
     if ast.is_value(&prev_node.base) {
-        log.trace("A")
         return ast.new_binary(prev_node, val, op), true
     }
     else if bin, ok := prev_node.derived_node.(^ast.Binary_Op); ok {
         if tok.precedence(bin.operator) >= tok.precedence(op) {
-            log.trace("B")
             return ast.new_binary(prev_node, val, op), true
         }
         else {
-            log.trace("C")
             bin.right = ast.new_binary(bin.right, val, op)
             return prev_node, true
         }

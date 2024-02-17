@@ -101,7 +101,7 @@ tokenize_chunk :: proc(chunk: string) -> ^Result {
     return tokenizer.result
 }
 
-print_tokenize_tokens :: proc(results: ^Result) {
+print_tokens :: proc(results: ^Result) {
     for token in &results.tokens {
         fmt.print(debug_text(&token))
         if token.type == .Newline {
@@ -111,7 +111,7 @@ print_tokenize_tokens :: proc(results: ^Result) {
     fmt.println()
 }
 
-print_tokenize_errors :: proc(results: ^Result) {
+print_errors :: proc(results: ^Result) {
     for error in results.errors {
         if len(error.text) > 0 {
             fmt.println(error.text)
@@ -533,6 +533,7 @@ debug_text :: proc(t: ^Token) -> string {
 
 trace_current_token_state :: proc(tokenizer: ^Tokenizer) {
     builder := strings.builder_make(0, 100)
+    strings.write_string(&builder, "    |")
     for i := 0 ; i <= 20; i += 1 {
         t := peek(tokenizer, i)
         
@@ -548,5 +549,6 @@ trace_current_token_state :: proc(tokenizer: ^Tokenizer) {
             strings.write_rune(&builder, t)
         }
     }
+    strings.write_string(&builder, "|")
     log.trace(strings.to_string(builder))
 }

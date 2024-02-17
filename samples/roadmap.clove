@@ -1,81 +1,81 @@
-# Class definition
+// Class definition
 class Sample
 
-# Member variables
-## Dynamic typing
+// Member variables
+// Dynamic typing
 num := 5
 dec := 2.7
 str := "Hello"
 arr := [num, dec, str, "other value"]
 
-## Optional static typing
+// Optional static typing
 n : int = 5
 d : float = 2.7
 s : string = "Hello"
 a : []var = [n, d, s, "other_value"]
 
 
-# Types
-## string
-## int
-## float
-## bool
-## nil
+// Types
+// string
+// int
+// float
+// bool
+// nil
 
 
-# Operations
-## +
-## -
-## *
-## /
-## <
-## <=
-## >
-## >=
-## ==
-## !=
-## and
-## or
-## xor
-## not
-## % 
-## %%
-## ^
+// Operations
+// +
+// -
+// *
+// /
+// <
+// <=
+// >
+// >=
+// ==
+// !=
+// and
+// or
+// xor
+// not
+// % 
+// %%
+// ^
 
-# Constants
-HEHE :: 8585   # Inferred typing
+// Constants
+HEHE :: 8585   // Inferred typing
 NAME :: "Geoff"
 
 
-# Enums
+// Enums
 Days :: enum
-    Monday    # = 1
-    Tuesday   # = 2
-    Wednesday # = 3
-    Thursday  # = 4
-    Friday    # = 5
-    Saturday  # = 6
-    Sunday    # = 7
+    Monday    // = 1
+    Tuesday   // = 2
+    Wednesday // = 3
+    Thursday  // = 4
+    Friday    // = 5
+    Saturday  // = 6
+    Sunday    // = 7
 
 
-# For loops
+// For loops
 list := ["meow", "bow", "cow"]
 for item in list
     print(item .. " weow")
 
-for i in 1..5 # print 1-5
+for i in 1..5 // print 1-5
     print(i)
 
-for i in 1..<5 # print 1-4
+for i in 1..<5 // print 1-4
     print(i)
 
-for i in 1..10 # print 1-6
+for i in 1..10 // print 1-6
     print(i)
     if i == 5
         break
 
-# We should probably allow arguments to be passed on the next line, as well
-#  as on the same line, eg:
+// We should probably allow arguments to be passed on the next line, as well
+//  as on the same line, eg:
 
 fn TestFunc(asd: int)
     return
@@ -83,20 +83,29 @@ fn TestFunc(asd: int)
 fn TestFunc2(
     asd: int
     bsd: int
-)   # <-- how should we handle this closing parentheses. On a line by itself? 
-    # Or on the line of the last parameter
+)   // <-- how should we handle this closing parentheses. On a line by itself? 
+    // Or on the line of the last parameter
     return
 
-# I don't like the look of having it on the same line as the parameter
-# maybe that should be up to the user though
+// I don't like the look of having it on the same line as the parameter
+// maybe that should be up to the user though
 fn TestFunc3(
     asd: int
     bsd:int)
     return
 
-# Actually depending on the syntax of return types we can 
-# make can better determin what we should do TODO
+// Actually depending on the syntax of return types we can 
+// make can better determin what we should do TODO
 
 
-# Tuples / mutliple return arguments
-# varargs
+// Tuples / mutliple return arguments
+// varargs
+
+
+/// Support for allocators?
+// Create class normally
+a := new Thing()
+
+// Create class with allocator
+a := alloc.new Thing()
+a := new Thing() from alloc

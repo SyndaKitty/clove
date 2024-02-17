@@ -1,1 +1,42 @@
-// semi-colons, operator precedence, func calls
+// More types, comparisons, bool operators, constants, func args
+
+/// Strings, arrays, ints, bools, nil
+str := "Hello"
+arr := [num, dec, str, "other value"]
+
+/// Comparisons
+// <  <=  >  >=  ==  !=
+a := 2
+b := 3
+
+less := a < b
+less_eq := a <= b
+more := a > b
+more_eq := a >= b
+eq := a == b
+not_eq := a != b
+
+/// Unary not
+// !
+less = !more_eq
+correct := eq == !not_eq
+
+/// Bool operators
+// and or xor
+meow := less or more
+weow := a == b xor less
+rawr := a != b and less
+
+
+/// Constants
+HEHE :: 8585
+NAME :: "Geoff"
+
+
+/// Multiple arguments to functions
+println(a)
+println(a, b)
+println(a, b, c)
+println(a, b, c, d)
+println(a, b, c, d, e)
+println(a, b, c, d, e, f)
