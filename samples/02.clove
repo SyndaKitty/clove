@@ -1,19 +1,21 @@
 // Assignments, addition, expressions, multi-line comment
 
-num := 5.0
+a := 5.0
 println(num)
 
-num2 := 1.5
-num2 = 2.5
+b := 1.5
+b = 2.5
 
-num_3 := 2.0
+c := 2.0
 
 6.9
 
-/* 
-Assignment! 
+/*
+Assignment!
     wow~!
 */
-num_3 = num + num_3
-num_4 := num_3 + num + num2
-println(num_3)
+a = b + c
+d := a + b + c
+e := a * b + c
+f := a + b * c
+println(f)

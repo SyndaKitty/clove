@@ -116,7 +116,7 @@ parse_statement :: proc(parser: ^Parser) -> (^ast.Statement, bool) {
         
         if match(parser, declaration_start_pattern, true) {
             decl, ok := parse_declaration(parser)
-            return &decl.stmt, ok
+            return &decl.base_stmt, ok
         }
         else if match(parser, assignment_pattern, true) {
             assign, ok := parse_assignment(parser)
@@ -202,7 +202,7 @@ parse_expression :: proc(parser: ^Parser) -> (^ast.Expression, bool) {
     node := cast(^ast.Expression)val
 
     for !is_at_end(parser) && tok.is_operator(peek(parser, 0).type) {
-        node, ok = parse_operation(parser, val)
+        node, ok = parse_operation(parser, node)
         if !ok {
             return nil, false
         }
@@ -217,6 +217,10 @@ parse_operation :: proc(
 ) -> (^ast.Expression, bool)
 {
     log.trace("parse_operation")
+    buf := strings.builder_make(0, 100)
+    ast.print_node(&buf, prev_node)
+    log.trace("prev_node =", strings.to_string(buf))
+    
     trace_current_parse_state(parser)
 
     op := peek(parser)
@@ -238,13 +242,16 @@ parse_operation :: proc(
     }
 
     if ast.is_value(&prev_node.base) {
+        log.trace("A")
         return ast.new_binary(prev_node, val, op), true
     }
-    else if bin, ok := prev_node.derived.(^ast.Binary_Op); ok {
+    else if bin, ok := prev_node.derived_node.(^ast.Binary_Op); ok {
         if tok.precedence(bin.operator) >= tok.precedence(op) {
+            log.trace("B")
             return ast.new_binary(prev_node, val, op), true
         }
         else {
+            log.trace("C")
             bin.right = ast.new_binary(bin.right, val, op)
             return prev_node, true
         }
@@ -289,11 +296,11 @@ parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
     t := peek(parser, 0)
     if t.type == .Number {
         advance(parser)
-        return &ast.new_number_literal(t).val, true
+        return &ast.new_number_literal(t).base_val, true
     }
     else if match(parser, func_call_pattern, true) {
         func_call, ok := parse_func_call(parser)
-        return &func_call.val, ok
+        return &func_call.base_val, ok
     }
     else if t.type == .Identifier {
         advance(parser)

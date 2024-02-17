@@ -68,7 +68,8 @@ interpret_chunk :: proc(
         }
      }
     else {
-        run_ast(res.ast, interpreter)
+        ast.print_ast(res.ast)
+        //run_ast(res.ast, interpreter)
     }
 }
 

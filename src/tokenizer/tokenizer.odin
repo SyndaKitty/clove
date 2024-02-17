@@ -131,6 +131,7 @@ print_tokenize_errors :: proc(results: ^Result) {
 }
 
 scan_token :: proc(tokenizer: ^Tokenizer) {
+    trace_current_token_state(tokenizer)
     if tokenizer.line_index == 0 {
         // TODO allow user to define tab as x spaces
         // Maybe something like #indent space 4
@@ -187,31 +188,31 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
     }
     else if c == '(' {
         advance(tokenizer)
-        add_token(tokenizer, .Left_Paren)
+        add_token(tokenizer, .Left_Paren, "(")
     }
     else if c == ')' { 
         advance(tokenizer)
-        add_token(tokenizer, .Right_Paren)
+        add_token(tokenizer, .Right_Paren, ")")
     }
     else if c == ':' {
         advance(tokenizer)
-        add_token(tokenizer, .Colon)
+        add_token(tokenizer, .Colon, ":")
     }
     else if c == '=' { 
         advance(tokenizer)
-        add_token(tokenizer, .Equals)
+        add_token(tokenizer, .Equals, "=")
     }
     else if match(tokenizer, "+") {
-        add_token(tokenizer, .Add)
+        add_token(tokenizer, .Add, "+")
     }
     else if match(tokenizer, "-") {
-        add_token(tokenizer, .Subtract)
+        add_token(tokenizer, .Subtract, "-")
     }
     else if match(tokenizer, "*") {
-        add_token(tokenizer, .Multiply)
+        add_token(tokenizer, .Multiply, "*")
     }
     else if match(tokenizer, "/") {
-        add_token(tokenizer, .Divide)
+        add_token(tokenizer, .Divide, "/")
     }
     else if c == ' ' {
         // Ignore
@@ -222,7 +223,7 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
     }
     else if c == '.' {
         advance(tokenizer)
-        add_token(tokenizer, .Dot)
+        add_token(tokenizer, .Dot, ".")
     }
     else if match_identifier(tokenizer) {
         // Done
@@ -406,6 +407,7 @@ add_token_no_text :: proc(tokenizer: ^Tokenizer, type: Type) {
         line_number = tokenizer.line_number,
     })
     
+    log.trace("New token:", type)
     tokenizer.token_start = tokenizer.line_index
 }
 
@@ -417,6 +419,7 @@ add_token_text :: proc(tokenizer: ^Tokenizer, type: Type, text: string) {
         end = tokenizer.line_index,
         line_number = tokenizer.line_number,
     })
+    log.trace("New token:", type)
     
     tokenizer.token_start = tokenizer.line_index
 }
@@ -447,6 +450,7 @@ advance_single :: proc(tokenizer: ^Tokenizer, capture := true) -> rune {
     if !capture {
         tokenizer.token_start = tokenizer.line_index
     }
+    trace_current_token_state(tokenizer)
     return ret
 }
 
@@ -456,6 +460,7 @@ advance_many :: proc(tokenizer: ^Tokenizer, count: int, capture := true) {
     if !capture {
         tokenizer.token_start = tokenizer.line_index
     }
+    trace_current_token_state(tokenizer)
 }
 
 advance :: proc {
@@ -524,4 +529,24 @@ debug_text :: proc(t: ^Token) -> string {
         case .Unknown:      return fmt.aprintf("[?? %s ??]", t.text)
     }
     return ""
+}
+
+trace_current_token_state :: proc(tokenizer: ^Tokenizer) {
+    builder := strings.builder_make(0, 100)
+    for i := 0 ; i <= 20; i += 1 {
+        t := peek(tokenizer, i)
+        
+        if t == rune(0) {
+            strings.write_string(&builder, "<EOF>")
+            break
+        }
+        else if t == '\r' { }
+        else if t == '\n' {
+            strings.write_string(&builder, "<nl>")
+        }
+        else {
+            strings.write_rune(&builder, t)
+        }
+    }
+    log.trace(strings.to_string(builder))
 }

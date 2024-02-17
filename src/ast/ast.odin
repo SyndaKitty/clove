@@ -2,8 +2,10 @@ package ast
 
 import "core:intrinsics"
 import "core:mem"
+import "core:strings"
 
 import tok "../tokenizer"
+import "../log"
 
 AST :: struct {
     statements: [dynamic]^Statement,
@@ -21,13 +23,13 @@ Type :: enum {
 }
 
 Node :: struct {
-    derived: Any_Node,
+    derived_node: Any_Node,
 }
 
 // Base Types
 Statement :: struct {
-    using base: Node,
-    derived_statement: Any_Statement,
+    using base_node: Node,
+    derived_stmt: Any_Statement,
 }
 
 Expression :: struct {
@@ -37,7 +39,7 @@ Expression :: struct {
 
 // Statements
 Declaration :: struct {
-    using stmt: Statement,
+    using base_stmt: Statement,
     identifier: ^Identifier,
     expression: ^Expression,
 }
@@ -55,12 +57,12 @@ new_declaration :: proc(
 }
 
 Expression_Statement :: struct {
-    using node: Statement,
+    using base_stmt: Statement,
     expression: ^Expression
 }
 
 Assignment :: struct {
-    using statement: Statement,
+    using base_stmt: Statement,
     identifier: ^Identifier,
     expression: ^Expression,
 }
@@ -80,12 +82,12 @@ new_assignment :: proc(
 
 // Expressions
 Value :: struct {
-    using expr: Expression,
-    derived: Any_Value,
+    using base_expr: Expression,
+    derived_val: Any_Value,
 }
 
 Identifier :: struct {
-    using val: Value,
+    using base_val: Value,
     name_token: ^tok.Token,
 }
 
@@ -97,7 +99,7 @@ new_identifier :: proc(name: ^tok.Token) -> ^Identifier {
 }
 
 Number_Literal :: struct {
-    using val: Value,
+    using base_val: Value,
     number: ^tok.Token,
 }
 
@@ -108,7 +110,7 @@ new_number_literal :: proc(t: ^tok.Token) -> ^Number_Literal {
 }
 
 Binary_Op :: struct {
-    using expr: Expression,
+    using base_expr: Expression,
     left: ^Expression,
     right: ^Expression,
     operator: ^tok.Token,
@@ -119,6 +121,16 @@ new_binary :: proc(
     operator: ^tok.Token,
 ) -> ^Binary_Op 
 {
+    buf := strings.builder_make(0, 100)
+    b := &buf
+    strings.write_string(b, "Creating binary with left=(")
+    print_node(b, left)
+    strings.write_string(b, ") right=(")
+    print_node(b, right)
+    strings.write_string(b, ") op=")
+    strings.write_string(b, operator.text)
+    log.trace(strings.to_string(buf))
+    
     ast := new(Binary_Op)
     ast.left = left
     ast.right = right
@@ -128,7 +140,7 @@ new_binary :: proc(
 }
 
 Unary_Op :: struct {
-    using val: Value,
+    using base_val: Value,
     subject: ^Expression,
     operator: ^tok.Token,
 }
@@ -141,7 +153,7 @@ new_unary :: proc(subject: ^Expression, operator: ^tok.Token) -> ^Unary_Op{
 }
 
 Func_Call :: struct {
-    using val: Value,
+    using base_val: Value,
     func: ^Identifier,
     arg: ^Expression,
 }
@@ -195,27 +207,24 @@ Any_Value :: union {
 
 new :: proc($T: typeid) -> ^T {
 	n, _ := mem.new(T)
-	n.derived = n
+	n.derived_node = n
 	base: ^Node = n // dummy check
 	_ = base
 	when intrinsics.type_has_field(T, "derived_expr") {
 		n.derived_expr = n
 	}
-	when intrinsics.type_has_field(T, "derived_statement") {
-		n.derived_statement = n
+	when intrinsics.type_has_field(T, "derived_stmt") {
+		n.derived_stmt = n
 	}
 	return n
 }
 
 is_value :: proc(n: ^Node) -> bool {
-    ok: bool
-    
-    _, ok = n.derived.(^Number_Literal) 
-    if ok do return true
-    
-    
-    _, ok = n.derived.(^Identifier) 
-    if ok do return true
+    #partial switch n in &n.derived_node {
+        case ^Number_Literal: return true
+        case ^Identifier: return true
+        case: return false
+    }
     
     return false
 }
