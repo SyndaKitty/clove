@@ -11,7 +11,7 @@ import "file"
 import interp "interpreter"
 
 main :: proc() {
-    log.set_level(.None)
+    log.set_level(.Error)
 
     track: mem.Tracking_Allocator
     mem.tracking_allocator_init(&track, context.allocator)

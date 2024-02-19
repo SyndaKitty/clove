@@ -1,1 +1,30 @@
-/// If statements, enums, parentheses, error messages
+/// If statements, enums, parentheses, error messages, assignment operators
+if cond
+    body
+
+asd :: enum
+    ONE
+    TWO
+    THREE
+
+a := (1 + 4) * 2
+
+/// Error detection/messages for all forms of incomplete statements
+// Incomplete declaration
+// a := 
+// a :
+
+// Incomplete assignment
+// a = 
+
+// Incomplete func call
+// println(
+
+// Incomplete unary op
+// a := !
+
+// Incomplete Binary op
+// a := 1 +
+
+// Error messages should provide line number/column of the error
+// as well as provide a small snippet of the code in the console output

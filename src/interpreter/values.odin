@@ -48,3 +48,16 @@ is_number :: proc(val: ^Value) -> bool {
     }
     return false
 }
+
+is_string :: proc(val: ^Value) -> bool {
+    if s, ok := val.derived_val.(^String); ok {
+        return true
+    }
+    return false
+}
+
+get_string :: proc(val: ^Value) -> string {
+    s, ok := val.derived_val.(^String)
+    assert(ok)
+    return s.val_string
+}

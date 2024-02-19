@@ -122,7 +122,7 @@ parse_statement :: proc(parser: ^Parser) -> (^ast.Statement, bool) {
             assign, ok := parse_assignment(parser)
             return cast(^ast.Statement)assign, ok
         }
-        else if t.type == .Identifier || t.type == .Number {
+        else if t.type == .Identifier || t.type == .Number || t.type == .String {
             expr, ok := parse_expression(parser)
             if !ok {
                 return nil, false
@@ -300,6 +300,10 @@ parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
     if t.type == .Number {
         advance(parser)
         return &ast.new_number_literal(t).base_val, true
+    }
+    else if t.type == .String {
+        advance(parser)
+        return &ast.new_string_literal(t).base_val, true
     }
     else if match(parser, func_call_pattern, true) {
         func_call, ok := parse_func_call(parser)

@@ -24,32 +24,32 @@ print_node :: proc(buf: buffer, node: ^Node) {
         
         case ^Declaration:
             strings.write_string(buf, "declare ")
-            strings.write_string(buf, n.identifier.name_token.text)
+            strings.write_string(buf, n.identifier.name_tok.text)
             strings.write_string(buf, " = ")
             print_node(buf, n.expression)
 
         case ^Assignment:
             strings.write_string(buf, "assign ")
-            strings.write_string(buf, n.identifier.name_token.text)
+            strings.write_string(buf, n.identifier.name_tok.text)
             strings.write_string(buf, " = ")
             print_node(buf, n.expression)
 
         // Expressions
         case ^Func_Call:
             strings.write_string(buf, "func_call name=(")
-            strings.write_string(buf, n.func.name_token.text)
+            strings.write_string(buf, n.func.name_tok.text)
             strings.write_string(buf, "), arg=(")
             print_node(buf, n.arg)
             strings.write_string(buf, ")")
             
         case ^Identifier:
             strings.write_string(buf, "var(")
-            strings.write_string(buf, n.name_token.text)
+            strings.write_string(buf, n.name_tok.text)
             strings.write_string(buf, ")")
 
         case ^Number_Literal:
             strings.write_string(buf, "num(")
-            strings.write_string(buf, n.number.text)
+            strings.write_string(buf, n.num_tok.text)
             strings.write_string(buf, ")")
 
         case ^Unary_Op:

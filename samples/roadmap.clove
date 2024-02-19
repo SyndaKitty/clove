@@ -87,6 +87,13 @@ fn TestFunc2(
     // Or on the line of the last parameter
     return
 
+// Multi-statements with semicolon
+a := 2; b := 5
+
+// Optional semicolons
+a := 2;
+b := 5;
+
 // I don't like the look of having it on the same line as the parameter
 // maybe that should be up to the user though
 fn TestFunc3(

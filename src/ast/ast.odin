@@ -88,24 +88,35 @@ Value :: struct {
 
 Identifier :: struct {
     using base_val: Value,
-    name_token: ^tok.Token,
+    name_tok: ^tok.Token,
 }
 
 new_identifier :: proc(name: ^tok.Token) -> ^Identifier {
     ast := new(Identifier)
-    ast.name_token = name
+    ast.name_tok = name
 
     return ast
 }
 
 Number_Literal :: struct {
     using base_val: Value,
-    number: ^tok.Token,
+    num_tok: ^tok.Token,
 }
 
 new_number_literal :: proc(t: ^tok.Token) -> ^Number_Literal {
     node := new(Number_Literal)
-    node.number = t
+    node.num_tok = t
+    return node
+}
+
+String_Literal :: struct {
+    using base_val: Value,
+    string_tok: ^tok.Token,
+}
+
+new_string_literal :: proc(t: ^tok.Token) -> ^String_Literal {
+    node := new(String_Literal)
+    node.string_tok = t
     return node
 }
 
@@ -171,6 +182,7 @@ Any_Node :: union {
     ^Binary_Op,
     ^Unary_Op,
     ^Number_Literal,
+    ^String_Literal,
     ^Func_Call,
 }
 
@@ -186,13 +198,15 @@ Any_Expr :: union {
     ^Binary_Op,
     ^Unary_Op,
     ^Func_Call,
+    ^String_Literal,
 }
 
 Any_Value :: union {
     ^Identifier,
     ^Number_Literal,
+    ^String_Literal,
     ^Unary_Op,
-    ^Func_Call
+    ^Func_Call,
 }
 
 new :: proc($T: typeid) -> ^T {
@@ -212,6 +226,7 @@ new :: proc($T: typeid) -> ^T {
 is_value :: proc(n: ^Node) -> bool {
     #partial switch n in &n.derived_node {
         case ^Number_Literal: return true
+        case ^String_Literal: return true
         case ^Identifier: return true
         case: return false
     }

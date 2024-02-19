@@ -40,6 +40,7 @@ run_interpreter :: proc() {
     defer strings.builder_destroy(&line_builder)
     
     for {
+        fmt.print(">> ")
         line, err := file.get_line_input(&line_builder)
         if err != os.ERROR_NONE {
             fmt.printf("Unable to read input: Errno %d\n", err)
@@ -93,11 +94,11 @@ evaluate_statement :: proc(interp: ^Interpreter, node: ^ast.Node) {
         case ^ast.Expression_Statement:
             v, ok := evaluate_expression(interp, n.expression)
             if ok {
-                fmt.printf("%s\n", to_string(v))
+                fmt.printf("%s\n", to_display_string(v))
             }
         
         case ^ast.Declaration:
-            var_name := n.identifier.name_token.text
+            var_name := n.identifier.name_tok.text
             log.trace("Declaring \"", var_name, "\"")
 
             if var_name in interp.values {
@@ -113,7 +114,7 @@ evaluate_statement :: proc(interp: ^Interpreter, node: ^ast.Node) {
             interp.values[var_name] = val
 
         case ^ast.Assignment:
-            var_name := n.identifier.name_token.text
+            var_name := n.identifier.name_tok.text
             log.trace("Assigning \"", var_name, "\"")
 
             if var_name not_in interp.values {
@@ -136,7 +137,7 @@ evaluate_statement :: proc(interp: ^Interpreter, node: ^ast.Node) {
 evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, bool) {
     #partial switch n in &node.derived_node {
         case ^ast.Func_Call:
-            func_name := n.func.name_token.text
+            func_name := n.func.name_tok.text
             log.trace("Running function ", func_name)
             if func_name == "println" {
                 val, ok := evaluate_expression(interp, n.arg)
@@ -151,7 +152,7 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
             }
 
         case ^ast.Identifier:
-            var_name := n.name_token.text
+            var_name := n.name_tok.text
             if var_name in interp.values {
                 return interp.values[var_name], true
             }
@@ -164,10 +165,15 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
             val := new(Float)
             // TODO move this parsing to tokenizer
             ok: bool
-            val.val_float, ok = strconv.parse_f32(n.number.text)
+            val.val_float, ok = strconv.parse_f32(n.num_tok.text)
             if !ok {
-                fmt.printf("Invalid number \"%s\"\n", n.number.text)
+                fmt.printf("Invalid number \"%s\"\n", n.num_tok.text)
             }
+            return val, true
+
+        case ^ast.String_Literal:
+            val := new(String)
+            val.val_string = n.string_tok.text
             return val, true
 
         case ^ast.Unary_Op:
@@ -187,18 +193,17 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
             if !ok {
                 return nil, false
             }
-            
             #partial switch n.operator.type {
+                
                 case .Add:
-                    if !check_numbers(left, right, "Cannot add values of type %s and %s") {
+                    ret, ok := evaluate_add(left, right)
+                    if !ok {
                         return nil, false
                     }
-                    ret := new(Float)
-                    ret.val_float = to_float(left) + to_float(right)
                     return ret, true
 
                 case .Subtract:
-                    if !check_numbers(left, right, "Cannot subtract values of type %s and %s") {
+                    if !check_numbers(left, right, "Cannot subtract values of type %s and %s\n") {
                         return nil, false
                     }
                     ret := new(Float)
@@ -206,7 +211,7 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
                     return ret, true
 
                 case .Multiply:
-                    if !check_numbers(left, right, "Cannot multiply values of type %s and %s") {
+                    if !check_numbers(left, right, "Cannot multiply values of type %s and %s\n") {
                         return nil, false
                     }
                     ret := new(Float)
@@ -214,7 +219,7 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
                     return ret, true
 
                 case .Divide:
-                    if !check_numbers(left, right, "Cannot divide values of type %s and %s") {
+                    if !check_numbers(left, right, "Cannot divide values of type %s and %s\n") {
                         return nil, false
                     }
                     ret := new(Float)
@@ -236,6 +241,52 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
     return nil, false
 }
 
+evaluate_add :: proc(left, right: ^Value) -> (^Value, bool) {
+    is_lstr := is_string(left)
+    is_lnum := is_number(left)
+
+    is_rstr := is_string(right)
+    is_rnum := is_number(right)
+    
+    valid := (is_lstr || is_lnum) && (is_rstr || is_rnum)
+
+    if !valid {
+        fmt.printf("Cannot add values of type %s and %s\n",)
+    }
+    
+    if is_lnum && is_rnum {
+        ret := new(Float)
+        ret.val_float = to_float(left) + to_float(right)
+
+        return ret, true
+    }
+
+    if is_lstr || is_rstr {
+        ret := new(String)
+        
+        lstr := to_string(left)
+        rstr := to_string(right)
+        
+        buf := strings.builder_make(0, len(lstr) + len(rstr))
+        strings.write_string(&buf, lstr)
+        strings.write_string(&buf, rstr)
+        
+        ret.val_string = strings.to_string(buf)
+
+        return ret, true
+    }
+
+    log.error(
+        fmt.aprintf(
+            "Addition not implemented for types %s and %s", 
+            type_string(left), 
+            type_string(right),
+        ),
+    )
+    return nil, false
+}
+
+
 to_float :: proc(v: ^Value) -> f32 {
     #partial switch n in &v.derived_val {
         case ^Float: return n.val_float
@@ -249,7 +300,7 @@ check_numbers :: proc(a, b: ^Value, error_msg: string) -> bool {
     if !is_number(a) || !is_number(b) {
         a_type := type_string(a)
         b_type := type_string(b)
-        fmt.println(
+        fmt.printf(
             error_msg, 
             a_type, 
             b_type,
@@ -259,6 +310,14 @@ check_numbers :: proc(a, b: ^Value, error_msg: string) -> bool {
     return true
 }
 
+// For display on the output console
+to_display_string :: proc(val: ^Value) -> string {
+    if v, ok := val.derived_val.(^String); ok {
+        return fmt.aprintf("\"%s\"", v.val_string)
+    }
+    return to_string(val)
+}
+
 to_string :: proc(val: ^Value) -> string {
     switch v in &val.derived_val {
         case ^Float:
@@ -266,7 +325,7 @@ to_string :: proc(val: ^Value) -> string {
         case ^Integer:
             return fmt.aprintf("%d", v.val_int)
         case ^String:
-            return fmt.aprintf("%d", v.val_string)
+            return v.val_string
         case ^Nil:
             return "nil"
     }
@@ -285,4 +344,4 @@ type_string :: proc(val: ^Value) -> string {
             return "nil"
     }
     return ""
-} 
+}

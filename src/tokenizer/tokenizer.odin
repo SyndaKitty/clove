@@ -17,6 +17,8 @@ Result :: struct {
 Error_Type :: enum {
     Unknown_Character,
     Malformed_Number,
+    Invalid_Escape_Sequence,
+    String_Missing_End,
     Comment_Missing_End,
     Misaligned_Tab,
 }
@@ -43,6 +45,7 @@ Type :: enum {
     Subtract,
     Multiply,
     Divide,
+    String,
     Unknown,
     EOF,
 }
@@ -77,6 +80,8 @@ Tokenizer :: struct {
 
     line_start: int,
 }
+
+Buffer :: ^strings.Builder
 
 free_tokenize_result :: proc(result: ^Result) {
     for t in result.tokens {
@@ -177,7 +182,7 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
             error(
                 tokenizer, 
                 .Comment_Missing_End,
-                "Multiline comment missing corresponding ending \"*/\"",
+                "Multiline comment is missing corresponding ending \"*/\"",
             )
         }
     }
@@ -185,6 +190,9 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
         for !is_at_end(tokenizer) && peek(tokenizer) != '\n' {
             advance(tokenizer, false)
         }
+    }
+    else if c == '"' {
+        read_string(tokenizer)
     }
     else if c == '(' {
         advance(tokenizer)
@@ -287,7 +295,87 @@ is_operator :: proc(type: Type) -> bool {
         type == .Divide
 }
 
+read_string :: proc(tokenizer: ^Tokenizer) -> bool {
+    if peek(tokenizer) != '"' do return false
+    advance(tokenizer)
+
+    string_buf := strings.builder_make(0, 32)
+
+    escape_mode := false
+    for !is_at_end(tokenizer) {
+        r := peek(tokenizer)
+        
+        if escape_mode {
+            if escaped, ok := read_escaped_rune(tokenizer, &string_buf, r); ok {
+                escape_mode = false
+                advance(tokenizer)
+                strings.write_rune(&string_buf, escaped)
+                continue
+            }
+            else {
+                return false
+            }
+        }
+        
+        switch r {
+            case '\\':
+                escape_mode = true
+            case '"':
+                add_token_text(tokenizer, .String, strings.to_string(string_buf))
+                advance(tokenizer)
+                return true
+            case '\n':
+                advance(tokenizer)
+                error(
+                    tokenizer, 
+                    .String_Missing_End, 
+                    "string missing corresponding ending \"",
+                )
+                return false
+            case:
+                strings.write_rune(&string_buf, r)
+
+        }
+        advance(tokenizer)
+    }
+    
+    error(
+        tokenizer, 
+        .String_Missing_End, 
+        "string missing corresponding ending \"",
+    )
+    return false
+}
+
+read_escaped_rune :: proc(tokenizer: ^Tokenizer, buf: Buffer, r: rune) -> (rune, bool){
+    escapes := map[rune]rune { 
+        '\\' = '\\',
+        '"' = '\"',
+        '0' = rune(0),
+        'a' = '\a',
+        'b' = '\b',
+        'f' = '\f',
+        'n' = '\n',
+        'r' = '\r',
+        't' = '\t',
+        'v' = '\v',
+    }
+
+    if r in escapes {
+        return escapes[r]
+    }
+    else {
+        error(
+            tokenizer, 
+            .Invalid_Escape_Sequence, 
+            fmt.aprintf("Invalid escape sequence \\%s", r)
+        )
+        return 0, false
+    }
+}
+
 match_number :: proc(tokenizer: ^Tokenizer) -> bool {
+    // TODO allow underscore separators
     r := tokenizer.runes[tokenizer.current]
     dot_digit := r == '.' && is_digit(peek(tokenizer, 1))
     if !is_digit(r) && !dot_digit {
@@ -504,7 +592,8 @@ descriptive_text :: proc(t: ^Token) -> string {
         case .Multiply:     return "\"*\""
         case .Divide:       return "\"/\""
         case .Identifier:   return fmt.aprintf("identifier \"%s\"", t.text)
-        case .Number:       return fmt.aprintf("number \"%s\"", t.text)
+        case .Number:       return fmt.aprintf("number literal \"%s\"", t.text)
+        case .String:       return fmt.aprintf("string literal \"%s\"", t.text)
         case .Unknown:      return fmt.aprintf("token \"%s\"", t.text)
     }
     return ""
@@ -526,6 +615,7 @@ debug_text :: proc(t: ^Token) -> string {
         case .Divide:       return "[/]"
         case .Identifier:   return fmt.aprintf("['%s']", t.text)
         case .Number:       return fmt.aprintf("[%s]", t.text)
+        case .String:       return fmt.aprintf("[\"%s\"]", t.text)
         case .Unknown:      return fmt.aprintf("[?? %s ??]", t.text)
     }
     return ""

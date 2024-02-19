@@ -1,8 +1,11 @@
-// More types, comparisons, bool operators, constants, func args
+// More types, comparisons, bool operators, constants, func args, nil values
 
 /// Strings, arrays, ints, bools, nil
+num := 1
+dec := 2.5
 str := "Hello"
-arr := [num, dec, str, "other value"]
+arr := [num, dec, str, 5, 25.2, "other value"]
+bol := true
 
 /// Comparisons
 // <  <=  >  >=  ==  !=
@@ -40,3 +43,6 @@ println(a, b, c)
 println(a, b, c, d)
 println(a, b, c, d, e)
 println(a, b, c, d, e, f)
+
+a := "Hello"
+b := "World"
