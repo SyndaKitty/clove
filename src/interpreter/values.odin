@@ -13,6 +13,7 @@ Any_Value :: union {
     ^String,
     ^Nil,
     ^Array,
+    ^Bool,
 }
 
 Integer :: struct {
@@ -37,6 +38,11 @@ Nil :: struct {
 Array :: struct {
     using base: Value,
     items: [dynamic]^Value,
+}
+
+Bool :: struct {
+    using base: Value,
+    boolean: bool,
 }
 
 new :: proc($T: typeid) -> ^T {

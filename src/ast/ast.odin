@@ -201,13 +201,13 @@ new_unary :: proc(subject: ^Expression, operator: ^tok.Token) -> ^Unary_Op{
 Func_Call :: struct {
     using base_val: Value,
     func: ^Identifier,
-    arg: ^Expression,
+    args: []^Expression,
 }
 
-new_func_call :: proc(func_name: ^Identifier, arg: ^Identifier) -> ^Func_Call {
+new_func_call :: proc(func_name: ^Identifier, args: []^Expression) -> ^Func_Call {
     ast := new(Func_Call)
     ast.func = func_name
-    ast.arg = arg
+    ast.args = args
 
     return ast
 }

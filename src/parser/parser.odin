@@ -321,7 +321,7 @@ is_value_lead :: proc(token: ^tok.Token) -> bool {
     return false
 }
 
-func_call_pattern :: []tok.Type { .Identifier, .Left_Paren, .Identifier, .Right_Paren }
+func_call_pattern :: []tok.Type { .Identifier, .Left_Paren }
 parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
     trace_push("parse_value")
     defer trace_pop("parse_value")
@@ -389,17 +389,26 @@ parse_func_call :: proc(parser: ^Parser) -> (^ast.Func_Call, bool) {
     ok, _ = expect(parser, .Left_Paren)
     if !ok do return nil, false
 
-    // TODO arg list
-    arg_tok: ^tok.Token
-    ok, arg_tok = expect(parser, .Identifier)
-    if !ok do return nil, false
-    
-    arg := ast.new_identifier(arg_tok)
+    expr_list: [dynamic]^ast.Expression
+
+    if peek(parser).type != .Right_Paren {
+        expr, ok := parse_expression(parser)
+        if !ok do return nil, false
+        append(&expr_list, expr)
+
+        for peek(parser).type == .Comma {
+            advance(parser)
+            expr, ok = parse_expression(parser)
+            if !ok do return nil, false
+            append(&expr_list, expr)
+        }
+    }
 
     ok, _ = expect(parser, .Right_Paren)
     if !ok do return nil, false
 
-    return ast.new_func_call(func_name, arg), true
+    func_call := ast.new_func_call(func_name, expr_list[:])
+    return func_call, true
 }
 
 parse_array_literal :: proc(parser: ^Parser) -> (^ast.Array_Literal, bool) {

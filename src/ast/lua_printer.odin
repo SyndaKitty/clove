@@ -35,7 +35,16 @@ lua_node :: proc(buf: buffer, node: ^Node) {
             func_name := func_translation(n.func.name_tok.text)
             strings.write_string(buf, func_name)
             strings.write_string(buf, "(")
-            lua_node(buf, n.arg)
+            one := false
+            for arg in n.args {
+                lua_node(buf, arg)
+                strings.write_string(buf, ",")
+                one = true
+            }
+            if one {
+                // Remove trailing ,
+                pop(&buf.buf)
+            }
             strings.write_string(buf, ")")
             
         case ^Identifier:

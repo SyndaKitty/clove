@@ -17,7 +17,7 @@ print_ast :: proc(program: Program) {
 }
 
 print_node :: proc(buf: buffer, node: ^Node) {
-    #partial switch n in &node.derived_node {
+    switch n in &node.derived_node {
         // Statements
         case ^Expression_Statement:
             print_node(buf, n.expression)
@@ -36,10 +36,19 @@ print_node :: proc(buf: buffer, node: ^Node) {
 
         // Expressions
         case ^Func_Call:
-            strings.write_string(buf, "func_call name=(")
+            strings.write_string(buf, "call(")
             strings.write_string(buf, n.func.name_tok.text)
             strings.write_string(buf, "), arg=(")
-            print_node(buf, n.arg)
+            one := false
+            for arg in n.args {
+                print_node(buf, arg)
+                strings.write_string(buf, ",")
+                one = true
+            }
+            if one {
+                // Remove trailing ,
+                pop(&buf.buf)
+            }
             strings.write_string(buf, ")")
             
         case ^Identifier:
@@ -73,6 +82,39 @@ print_node :: proc(buf: buffer, node: ^Node) {
             print_node(buf, n.left)
             strings.write_string(buf, ",")
             print_node(buf, n.right)
+            strings.write_string(buf, ")")
+
+        case ^Bool_Literal:
+            strings.write_string(buf, "bool(")
+            strings.write_string(buf, "true" if n.value else "false")
+            strings.write_string(buf, ")")
+
+        case ^Array_Literal:
+            strings.write_string(buf, "arr[")
+            one := false
+            for item in n.items {
+                print_node(buf, item)
+                strings.write_string(buf, ",")
+                one = true
+            }
+            if one {
+                pop(&buf.buf)
+            }
+            strings.write_string(buf, "]")
+
+        case ^Float_Literal:
+            strings.write_string(buf, "float(")
+            strings.write_string(buf, n.num_str)
+            strings.write_string(buf, ")")
+
+        case ^Integer_Literal:
+            strings.write_string(buf, "int(")
+            strings.write_string(buf, n.num_str)
+            strings.write_string(buf, ")")
+
+        case ^String_Literal:
+            strings.write_string(buf, "str(")
+            strings.write_string(buf, n.string_tok.text)
             strings.write_string(buf, ")")
 
         case:

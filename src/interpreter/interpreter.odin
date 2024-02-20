@@ -72,8 +72,9 @@ interpret_chunk :: proc(
         }
      }
     else {
-        //interpret_ast(interp_val, res.program)
         ast.lua_ast(res.program)
+        ast.print_ast(res.program)
+        interpret_ast(interp_val, res.program)
     }
 }
 
@@ -132,15 +133,19 @@ evaluate_statement :: proc(interp: ^Interpreter, node: ^ast.Node) {
 
 evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, bool) {
     log.trace("evaluate_expression")
-    #partial switch n in &node.derived_node {
+    switch n in &node.derived_node {
         case ^ast.Func_Call:
             func_name := n.func.name_tok.text
             log.trace("Running function ", func_name)
             if func_name == "println" {
-                val, ok := evaluate_expression(interp, n.arg)
-                if ok {
-                    fmt.println(to_string(val))
+                buf := strings.builder_make(0, 32)
+                for arg in n.args {
+                    val, ok := evaluate_expression(interp, arg)
+                    if !ok do break
+                    
+                    strings.write_string(&buf, to_string(val))
                 }
+                fmt.println(strings.to_string(buf))
                 return new(Nil), true
             }
             else {
@@ -254,6 +259,16 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
                 append(&arr.items, expr)
             }
             return &arr.base, true
+
+        case ^ast.Bool_Literal:
+            b := new(Bool)
+            b.boolean = n.value
+            return &b.base, true
+
+        case ^ast.Assignment:           assert(false, "Invalid expression")
+        case ^ast.Declaration:          assert(false, "Invalid expression")
+        case ^ast.Expression_Statement: assert(false, "Invalid expression")
+        case ^ast.Number_Literal:       assert(false, "Invalid expression")
     }
 
     log.error("Unknown expression type ", node.derived_node)
@@ -382,6 +397,8 @@ to_string :: proc(val: ^Value) -> string {
             }
             strings.write_rune(&buf, ']')
             return strings.to_string(buf)
+        case ^Bool:
+            return "true" if v.boolean else "false"
     }
     return ""
 }
@@ -398,6 +415,8 @@ type_string :: proc(val: ^Value) -> string {
             return "nil"
         case ^Array:
             return "array"
+        case ^Bool:
+            return "bool"
     }
     return ""
 }
