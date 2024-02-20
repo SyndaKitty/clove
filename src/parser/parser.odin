@@ -23,7 +23,10 @@ import tok "../tokenizer"
 // Maybe there could be a context enum in the error proc
 // So in case 1 it would be {type = End of Line, context = Value}
 // in case 2 it would be {type = End of Line, context = Operator}
-// Separately, we could track if the error has already been reported ??
+
+// We could create an error record at the most specific point, and then bubble up
+// the error struct, and if any production wants to override the error message it can,
+// once the error struct is bubbled all the way up to parse_statement, it can be printed
 
 // For now the error approach is that 
 // the most specific calls will do error reporting
@@ -80,7 +83,8 @@ print_parse_errors :: proc(results: ^Result) {
 }
 
 parse_program :: proc(parser: ^Parser) {
-    log.trace("parse_program")
+    log.trace("entr parse_program")
+    defer log.trace("exit parse_program")
     trace_current_parse_state(parser)
     
     for {
@@ -94,8 +98,8 @@ parse_program :: proc(parser: ^Parser) {
     if !is_at_end(parser) {
         t := peek(parser, 0)
         error(parser, .Unexpected_Token, fmt.aprintf(
-            "Unexpected token: [%s]\"%s\". Expected EOF", 
-            t.type, t.text),
+            "Unexpected token: %s. Expected EOF", 
+            tok.descriptive_text(t)),
         )
     }
 }
@@ -105,8 +109,9 @@ assignment_pattern :: []tok.Type{.Identifier, .Equals}
 
 parse_statement :: proc(parser: ^Parser) -> (^ast.Statement, bool) {
     log.trace()
-    log.trace("parse_statement")
-    
+    log.trace("entr parse_statement")
+    defer log.trace("exit parse_statement")
+
     skip_empty_lines(parser)
 
     for !is_at_end(parser) {
@@ -122,10 +127,14 @@ parse_statement :: proc(parser: ^Parser) -> (^ast.Statement, bool) {
             assign, ok := parse_assignment(parser)
             return cast(^ast.Statement)assign, ok
         }
-        else if t.type == .Identifier || t.type == .Number || t.type == .String {
+        else if is_value_lead(t) {
             expr, ok := parse_expression(parser)
             if !ok {
                 return nil, false
+            }
+
+            if !expect_newline(parser) {
+                consume_line(parser)
             }
 
             stmt := ast.new(ast.Expression_Statement)
@@ -166,7 +175,6 @@ parse_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) {
         return nil, false
     }
     else {
-        // TODO better error message
         unexpected_token(parser, "Expected a \"=\" or a type after :")
         consume_line(parser)
         return nil, false
@@ -174,7 +182,8 @@ parse_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) {
 }
 
 parse_assignment :: proc(parser: ^Parser) -> (^ast.Assignment, bool) {
-    log.trace("parse_assignment")
+    log.trace("entr parse_assignment")
+    defer log.trace("exit parse_assignment")
     assert(!is_at_end(parser))
 
     trace_current_parse_state(parser)
@@ -187,12 +196,17 @@ parse_assignment :: proc(parser: ^Parser) -> (^ast.Assignment, bool) {
     if !ok {
         return nil, false
     }
+    
+    if !expect_newline(parser) {
+        consume_line(parser)
+    }
 
     return ast.new_assignment(identifier, expression), true
 }
 
 parse_expression :: proc(parser: ^Parser) -> (^ast.Expression, bool) {
-    log.trace("parse_expression")
+    log.trace("entr parse_expression")
+    defer log.trace("exit parse_expression")
     trace_current_parse_state(parser)
     
     if is_at_end(parser) {
@@ -207,14 +221,21 @@ parse_expression :: proc(parser: ^Parser) -> (^ast.Expression, bool) {
 
     node := cast(^ast.Expression)val
 
-    for !is_at_end(parser) && tok.is_operator(peek(parser, 0).type) {
+    log.trace(tok.debug_text(peek(parser)))
+    for !is_expression_end(peek(parser, 0).type) && tok.is_operator(peek(parser, 0).type)
+    {
         node, ok = parse_operation(parser, node)
         if !ok {
             return nil, false
         }
+        log.trace(tok.debug_text(peek(parser)))
     }
 
     return node, true
+}
+
+is_expression_end :: proc(tok_type: tok.Type) -> bool {
+    return tok_type == .EOF || tok_type == .Comma || tok_type == .Right_Bracket
 }
 
 parse_operation :: proc(
@@ -222,7 +243,8 @@ parse_operation :: proc(
     prev_node: ^ast.Expression,
 ) -> (^ast.Expression, bool)
 {
-    log.trace("parse_operation")
+    log.trace("entr parse_operation")
+    defer log.trace("exit parse_operation")
     buf := strings.builder_make(0, 100)
     ast.print_node(&buf, prev_node)
     log.trace("prev_node =", strings.to_string(buf))
@@ -270,7 +292,8 @@ parse_operation :: proc(
 }
 
 parse_inferred_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) {
-    log.trace("parse_inferred_declaration")
+    log.trace("entr parse_inferred_declaration")
+    defer log.trace("exit parse_inferred_declaration")
     assert(!is_at_end(parser))  
     trace_current_parse_state(parser)
 
@@ -281,15 +304,29 @@ parse_inferred_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) 
     if !ok {
         // TODO better error
         unexpected_token(parser, "Invalid expression")
+        consume_line(parser)
         return nil, false
     }
     
+    if !expect_newline(parser) {
+        consume_line(parser)
+    }
+
     return ast.new_declaration(iden, expr), true
+}
+
+value_lead :: []tok.Type {.Identifier, .Number, .String, .Left_Bracket}
+is_value_lead :: proc(token: ^tok.Token) -> bool {
+    for lead in value_lead {
+        if token.type == lead do return true
+    }
+    return false
 }
 
 func_call_pattern :: []tok.Type { .Identifier, .Left_Paren, .Identifier, .Right_Paren }
 parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
-    log.trace("parse_value")
+    log.trace("entr parse_value")
+    defer log.trace("exit parse_value")
     trace_current_parse_state(parser)
 
     if is_at_end(parser) {
@@ -305,6 +342,10 @@ parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
         advance(parser)
         return &ast.new_string_literal(t).base_val, true
     }
+    else if t.type == .Left_Bracket {
+        array, ok := parse_array_literal(parser)
+        return &array.base_val, ok
+    }
     else if match(parser, func_call_pattern, true) {
         func_call, ok := parse_func_call(parser)
         return &func_call.base_val, ok
@@ -317,7 +358,7 @@ parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
         unexpected_token(
             parser, 
             fmt.aprintf(
-                "Unexpected token [%s]", 
+                "Unexpected token %s", 
                 tok.descriptive_text(t),
             ),
         )
@@ -326,7 +367,8 @@ parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
 }
 
 parse_func_call :: proc(parser: ^Parser) -> (^ast.Func_Call, bool) {
-    log.trace("parse_func_call")
+    log.trace("entr parse_func_call")
+    defer log.trace("exit parse_func_call")
     trace_current_parse_state(parser)
 
     ok, func_tok := expect(parser, .Identifier)
@@ -348,6 +390,60 @@ parse_func_call :: proc(parser: ^Parser) -> (^ast.Func_Call, bool) {
     if !ok do return nil, false
 
     return ast.new_func_call(func_name, arg), true
+}
+
+parse_array_literal :: proc(parser: ^Parser) -> (^ast.Array_Literal, bool) {
+    log.trace("entr parse_array_literal")
+    defer log.trace("exit parse_array_literal")
+    trace_current_parse_state(parser)
+
+    ok, _ := expect(parser, .Left_Bracket)
+    if !ok do return nil, false
+
+    t := peek(parser)
+    if t.type == .Right_Bracket {
+        advance(parser)
+        return ast.new_array_literal(nil), true
+    }
+
+    items: [dynamic]^ast.Expression
+
+    loop: for {
+        expr: ^ast.Expression
+        expr, ok = parse_expression(parser)
+        if !ok do return nil, false
+
+        t := peek(parser)
+        #partial switch t.type {
+            case .Comma:
+                append(&items, expr)
+                advance(parser)
+                continue
+
+            case .Newline:
+                unexpected_token_message(
+                    parser, 
+                    fmt.aprintf("Unexpected %s, expected ] to end array", t),
+                )
+                break loop
+            
+            case .Right_Bracket:
+                log.trace("---END---")
+                append(&items, expr)
+                advance(parser)
+                break loop
+
+            case: 
+                unexpected_token_message(
+                    parser, 
+                    fmt.aprintf("Unexpected %s, expected ] to end array", t),
+                )
+                return nil, false
+        }
+    }
+
+    arr := ast.new_array_literal(items[:])
+    return arr, true
 }
 
 skip_empty_lines :: proc(parser: ^Parser) {
@@ -399,6 +495,7 @@ is_statement_terminator :: proc(token: ^tok.Token) -> bool {
 advance_single :: proc(parser: ^Parser) -> tok.Token {
     res := parser.tokens[parser.current]
     parser.current += 1
+    trace_current_parse_state(parser)
     return res
 }
 
@@ -408,6 +505,7 @@ advance_many :: proc(parser: ^Parser, num: int) -> bool {
             return false
         }
         parser.current += 1
+        trace_current_parse_state(parser)
     }
     return true
 }
@@ -417,15 +515,48 @@ advance :: proc {
     advance_many,
 }
 
-expect :: proc(parser: ^Parser, type: tok.Type) -> (bool, ^tok.Token) {
-    t := peek(parser, 0)
+expect :: proc(parser: ^Parser, type: tok.Type, adv := true) -> (bool, ^tok.Token) {
+    t := peek(parser)
     if t.type != type {
         unexpected_token(parser, t, type)
         return false, nil
     }
-    advance(parser)
+    if adv do advance(parser)
     return true, t
 }
+
+expect_newline :: proc(parser: ^Parser, adv := false) -> bool {
+    t := peek(parser)
+    if t.type != .EOF && t.type != .Newline {
+        unexpected_token(
+            parser, 
+            fmt.aprintf(
+                "Unexpected %s, expected newline", 
+                tok.descriptive_text(t),
+            ),
+        )
+        return false
+    }
+    if adv do advance(parser)
+    return true
+}
+
+// expect_any :: proc(
+//     parser: ^Parser, 
+//     types: []tok.Type, 
+//     adv := true
+// ) -> (bool, ^tok.Token) 
+// {
+//     t := peek(parser)
+//     for expected in types {
+//         if expected == t.type {
+//             if adv do advance(parser)
+//             return true, t
+//         }
+//     }
+//     if adv do advance(parser)
+//     return false, nil
+// }
 
 peek :: proc(parser: ^Parser, offset := 0) -> ^tok.Token {
     if parser.current + offset >= parser.token_count {
@@ -439,6 +570,7 @@ is_at_end :: proc(parser: ^Parser) -> bool {
 }
 
 error :: proc(parser: ^Parser, type: Error_Type, text: string) {
+    log.error(text)
     append(&parser.result.errors, Error {
         type = type,
         text = text,
@@ -496,6 +628,7 @@ consume_until_type :: proc(parser: ^Parser, type: tok.Type) -> int {
 
 trace_current_parse_state :: proc(parser: ^Parser) {
     builder := strings.builder_make(0, 100)
+    strings.write_string(&builder, "    ")
     for i := 0 ;; i += 1 {
         t := peek(parser, i)
         done := t.type == .EOF || t.type == .Newline

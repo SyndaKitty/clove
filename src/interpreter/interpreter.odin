@@ -135,6 +135,7 @@ evaluate_statement :: proc(interp: ^Interpreter, node: ^ast.Node) {
 }
 
 evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, bool) {
+    log.trace("evaluate_expression")
     #partial switch n in &node.derived_node {
         case ^ast.Func_Call:
             func_name := n.func.name_tok.text
@@ -162,9 +163,15 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
             }
 
         case ^ast.Number_Literal:
-            val := new(Float)
             // TODO move this parsing to tokenizer
-            ok: bool
+            i, ok := strconv.parse_int(n.num_tok.text)
+            if ok {
+                integer := new(Integer)
+                integer.val_int = i
+                return integer, true
+            }
+            
+            val := new(Float)
             val.val_float, ok = strconv.parse_f32(n.num_tok.text)
             if !ok {
                 fmt.printf("Invalid number \"%s\"\n", n.num_tok.text)
@@ -235,6 +242,17 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
                     fmt.println("Unknown operator \"%s\"", n.operator.text)
                     return nil, false
             }
+
+        case ^ast.Array_Literal:
+            arr := new(Array)
+            for item in n.items {
+                expr, ok := evaluate_expression(interp, item)
+                if !ok {
+                    return nil, false
+                }
+                append(&arr.items, expr)
+            }
+            return &arr.base, true
     }
 
     log.error("Unknown expression type ", node.derived_node)
@@ -251,10 +269,19 @@ evaluate_add :: proc(left, right: ^Value) -> (^Value, bool) {
     valid := (is_lstr || is_lnum) && (is_rstr || is_rnum)
 
     if !valid {
-        fmt.printf("Cannot add values of type %s and %s\n",)
+        fmt.printf("Cannot add values of type %s and %s\n",
+            type_string(left),
+            type_string(right),
+        )
+        return nil, false
     }
     
     if is_lnum && is_rnum {
+        if is_int(left) && is_int(right) {
+            ret := new(Integer)
+            ret.val_int = to_int(left) + to_int(right)
+            return ret, true
+        }
         ret := new(Float)
         ret.val_float = to_float(left) + to_float(right)
 
@@ -296,6 +323,14 @@ to_float :: proc(v: ^Value) -> f32 {
     return -1
 }
 
+to_int :: proc(v: ^Value) -> int {
+    #partial switch n in &v.derived_val {
+        case ^Integer: return n.val_int
+    }
+    assert(false, "Value is not int")
+    return -1
+}
+
 check_numbers :: proc(a, b: ^Value, error_msg: string) -> bool {
     if !is_number(a) || !is_number(b) {
         a_type := type_string(a)
@@ -310,8 +345,11 @@ check_numbers :: proc(a, b: ^Value, error_msg: string) -> bool {
     return true
 }
 
-// For display on the output console
+// For display on the output console in interpreter mode
 to_display_string :: proc(val: ^Value) -> string {
+    // TODO: Maybe we don't want to display special characters like
+    // \a \b \r \n as it can cause funky output on the console
+    // If println calls it, then we should print the actual value
     if v, ok := val.derived_val.(^String); ok {
         return fmt.aprintf("\"%s\"", v.val_string)
     }
@@ -323,11 +361,27 @@ to_string :: proc(val: ^Value) -> string {
         case ^Float:
             return fmt.aprintf("%f", v.val_float)
         case ^Integer:
+            log.trace("i")
             return fmt.aprintf("%d", v.val_int)
         case ^String:
             return v.val_string
         case ^Nil:
             return "nil"
+        case ^Array:
+            buf := strings.builder_make(0, 32)
+            strings.write_rune(&buf, '[')
+            one := false
+            for item in v.items {
+                 strings.write_string(&buf, to_string(item))
+                 strings.write_string(&buf, ",")
+                 one = true
+            }
+            if one {
+                // Remove trailing ,
+                pop(&buf.buf)
+            }
+            strings.write_rune(&buf, ']')
+            return strings.to_string(buf)
     }
     return ""
 }
@@ -342,6 +396,8 @@ type_string :: proc(val: ^Value) -> string {
             return "string"
         case ^Nil:
             return "nil"
+        case ^Array:
+            return "array"
     }
     return ""
 }

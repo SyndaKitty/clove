@@ -10,7 +10,7 @@ import "ast"
 import "file"
 import interp "interpreter"
 
-main :: proc() {
+main :: proc() {    
     log.set_level(.Error)
 
     track: mem.Tracking_Allocator
@@ -18,6 +18,7 @@ main :: proc() {
     context.allocator = mem.tracking_allocator(&track)
 
     when ODIN_DEBUG {
+        log.set_level(.All)
         log.debug("Running in debug mode")
         /*
         defer {

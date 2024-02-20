@@ -36,6 +36,10 @@ HEHE :: 8585
 NAME :: "Geoff"
 
 
+// nil is a value
+println(nil)
+
+
 /// Multiple arguments to functions
 println(a)
 println(a, b)

@@ -34,7 +34,10 @@ Error :: struct {
 Type :: enum {
     Left_Paren,
     Right_Paren,
+    Left_Bracket,
+    Right_Bracket,
     Dot,
+    Comma,
     Colon,
     Equals,
     Tab,
@@ -202,6 +205,14 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
         advance(tokenizer)
         add_token(tokenizer, .Right_Paren, ")")
     }
+    else if c == '[' {
+        advance(tokenizer)
+        add_token(tokenizer, .Left_Bracket, "[")
+    }
+    else if c == ']' { 
+        advance(tokenizer)
+        add_token(tokenizer, .Right_Bracket, "]")
+    }
     else if c == ':' {
         advance(tokenizer)
         add_token(tokenizer, .Colon, ":")
@@ -232,6 +243,10 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
     else if c == '.' {
         advance(tokenizer)
         add_token(tokenizer, .Dot, ".")
+    }
+    else if c == ',' {
+        advance(tokenizer)
+        add_token(tokenizer, .Comma, ",")
     }
     else if match_identifier(tokenizer) {
         // Done
@@ -368,7 +383,7 @@ read_escaped_rune :: proc(tokenizer: ^Tokenizer, buf: Buffer, r: rune) -> (rune,
         error(
             tokenizer, 
             .Invalid_Escape_Sequence, 
-            fmt.aprintf("Invalid escape sequence \\%s", r)
+            fmt.aprintf("Invalid escape sequence \\%s", r),
         )
         return 0, false
     }
@@ -579,44 +594,50 @@ precedence :: proc(t: ^Token) -> int {
 // Give a representation of the token for a message to the user
 descriptive_text :: proc(t: ^Token) -> string {
     switch t.type {
-        case .Newline:      return "newline"
-        case .Left_Paren:   return "\"(\""
-        case .Right_Paren:  return "\")\""
-        case .Dot:          return "\".\""
-        case .Colon:        return "\":\""
-        case .Equals:       return "\"=\""
-        case .Tab:          return "tab"
-        case .EOF:          return "end of file"
-        case .Add:          return "\"+\""
-        case .Subtract:     return "\"-\""
-        case .Multiply:     return "\"*\""
-        case .Divide:       return "\"/\""
-        case .Identifier:   return fmt.aprintf("identifier \"%s\"", t.text)
-        case .Number:       return fmt.aprintf("number literal \"%s\"", t.text)
-        case .String:       return fmt.aprintf("string literal \"%s\"", t.text)
-        case .Unknown:      return fmt.aprintf("token \"%s\"", t.text)
+        case .Newline:       return "newline"
+        case .Left_Paren:    return "\"(\""
+        case .Right_Paren:   return "\")\""
+        case .Left_Bracket:  return "\"[\""
+        case .Right_Bracket: return "\"]\""
+        case .Dot:           return "\".\""
+        case .Comma:         return "\",\""
+        case .Colon:         return "\":\""
+        case .Equals:        return "\"=\""
+        case .Tab:           return "tab"
+        case .EOF:           return "end of file"
+        case .Add:           return "\"+\""
+        case .Subtract:      return "\"-\""
+        case .Multiply:      return "\"*\""
+        case .Divide:        return "\"/\""
+        case .Identifier:    return fmt.aprintf("identifier \"%s\"", t.text)
+        case .Number:        return fmt.aprintf("number literal \"%s\"", t.text)
+        case .String:        return fmt.aprintf("string literal \"%s\"", t.text)
+        case .Unknown:       return fmt.aprintf("token \"%s\"", t.text)
     }
     return ""
 }
 
 debug_text :: proc(t: ^Token) -> string {
     switch t.type {
-        case .Newline:      return "[\\n]"
-        case .Left_Paren:   return "[(]"
-        case .Right_Paren:  return "[)]"
-        case .Dot:          return "[.]"
-        case .Colon:        return "[:]"
-        case .Equals:       return "[=]"
-        case .Tab:          return "[\\t]"
-        case .EOF:          return "[EOF]"
-        case .Add:          return "[+]"
-        case .Subtract:     return "[-]"
-        case .Multiply:     return "[*]"
-        case .Divide:       return "[/]"
-        case .Identifier:   return fmt.aprintf("['%s']", t.text)
-        case .Number:       return fmt.aprintf("[%s]", t.text)
-        case .String:       return fmt.aprintf("[\"%s\"]", t.text)
-        case .Unknown:      return fmt.aprintf("[?? %s ??]", t.text)
+        case .Newline:       return "\\n"
+        case .Left_Paren:    return "( "
+        case .Right_Paren:   return ") "
+        case .Left_Bracket:  return "[ "
+        case .Right_Bracket: return "] "
+        case .Dot:           return ". "
+        case .Comma:         return ", "
+        case .Colon:         return ": "
+        case .Equals:        return "= "
+        case .Tab:           return "\\t "
+        case .EOF:           return "EOF"
+        case .Add:           return "+ "
+        case .Subtract:      return "- "
+        case .Multiply:      return "* "
+        case .Divide:        return "/ "
+        case .Identifier:    return fmt.aprintf("'%s' ", t.text)
+        case .Number:        return fmt.aprintf("%s ", t.text)
+        case .String:        return fmt.aprintf("\"%s\" ", t.text)
+        case .Unknown:       return fmt.aprintf("?%s? ", t.text)
     }
     return ""
 }

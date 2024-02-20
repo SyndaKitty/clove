@@ -18,6 +18,7 @@ Type :: enum {
     Expression,
     Number_Literal,
     Identifier,
+    Array_Literal,
     Binary_Op,
     Unary_Op,
 }
@@ -167,6 +168,18 @@ new_func_call :: proc(func_name: ^Identifier, arg: ^Identifier) -> ^Func_Call {
     return ast
 }
 
+Array_Literal :: struct {
+    using base_val: Value,
+    items: []^Expression,
+}
+
+new_array_literal :: proc(items: []^Expression) -> ^Array_Literal {
+    ast := new(Array_Literal)
+    ast.items = items
+
+    return ast
+}
+
 Comparison :: struct {
     // TODO - we should allow multiple comparisons
     // eg. a == b == c >= 2
@@ -184,6 +197,7 @@ Any_Node :: union {
     ^Number_Literal,
     ^String_Literal,
     ^Func_Call,
+    ^Array_Literal,
 }
 
 Any_Statement :: union {
@@ -199,6 +213,7 @@ Any_Expr :: union {
     ^Unary_Op,
     ^Func_Call,
     ^String_Literal,
+    ^Array_Literal,
 }
 
 Any_Value :: union {
@@ -207,6 +222,7 @@ Any_Value :: union {
     ^String_Literal,
     ^Unary_Op,
     ^Func_Call,
+    ^Array_Literal,
 }
 
 new :: proc($T: typeid) -> ^T {
@@ -227,6 +243,7 @@ is_value :: proc(n: ^Node) -> bool {
     #partial switch n in &n.derived_node {
         case ^Number_Literal: return true
         case ^String_Literal: return true
+        case ^Array_Literal: return true
         case ^Identifier: return true
         case: return false
     }

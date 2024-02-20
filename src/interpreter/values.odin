@@ -12,6 +12,7 @@ Any_Value :: union {
     ^Float,
     ^String,
     ^Nil,
+    ^Array,
 }
 
 Integer :: struct {
@@ -33,6 +34,11 @@ Nil :: struct {
     using base: Value,
 }
 
+Array :: struct {
+    using base: Value,
+    items: [dynamic]^Value,
+}
+
 new :: proc($T: typeid) -> ^T {
 	n, _ := mem.new(T)
 	n.derived_val = n
@@ -44,6 +50,13 @@ new :: proc($T: typeid) -> ^T {
 is_number :: proc(val: ^Value) -> bool {
     #partial switch n in &val.derived_val {
         case ^Float: return true
+        case ^Integer: return true
+    }
+    return false
+}
+
+is_int :: proc(val: ^Value) -> bool {
+    #partial switch n in &val.derived_val {
         case ^Integer: return true
     }
     return false
