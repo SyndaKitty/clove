@@ -83,8 +83,9 @@ print_parse_errors :: proc(results: ^Result) {
 }
 
 parse_program :: proc(parser: ^Parser) {
-    log.trace("entr parse_program")
-    defer log.trace("exit parse_program")
+    trace_push("parse_program")
+    defer trace_pop("parse_program")
+    
     trace_current_parse_state(parser)
     
     for {
@@ -109,8 +110,8 @@ assignment_pattern :: []tok.Type{.Identifier, .Equals}
 
 parse_statement :: proc(parser: ^Parser) -> (^ast.Statement, bool) {
     log.trace()
-    log.trace("entr parse_statement")
-    defer log.trace("exit parse_statement")
+    trace_push("parse_statement")
+    defer trace_pop("parse_statement")
 
     skip_empty_lines(parser)
 
@@ -182,8 +183,8 @@ parse_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) {
 }
 
 parse_assignment :: proc(parser: ^Parser) -> (^ast.Assignment, bool) {
-    log.trace("entr parse_assignment")
-    defer log.trace("exit parse_assignment")
+    trace_push("parse_assignment")
+    defer trace_pop("parse_assignment")
     assert(!is_at_end(parser))
 
     trace_current_parse_state(parser)
@@ -205,8 +206,8 @@ parse_assignment :: proc(parser: ^Parser) -> (^ast.Assignment, bool) {
 }
 
 parse_expression :: proc(parser: ^Parser) -> (^ast.Expression, bool) {
-    log.trace("entr parse_expression")
-    defer log.trace("exit parse_expression")
+    trace_push("parse_expression")
+    defer trace_pop("parse_expression")
     trace_current_parse_state(parser)
     
     if is_at_end(parser) {
@@ -221,14 +222,12 @@ parse_expression :: proc(parser: ^Parser) -> (^ast.Expression, bool) {
 
     node := cast(^ast.Expression)val
 
-    log.trace(tok.debug_text(peek(parser)))
     for !is_expression_end(peek(parser, 0).type) && tok.is_operator(peek(parser, 0).type)
     {
         node, ok = parse_operation(parser, node)
         if !ok {
             return nil, false
         }
-        log.trace(tok.debug_text(peek(parser)))
     }
 
     return node, true
@@ -243,11 +242,10 @@ parse_operation :: proc(
     prev_node: ^ast.Expression,
 ) -> (^ast.Expression, bool)
 {
-    log.trace("entr parse_operation")
-    defer log.trace("exit parse_operation")
+    trace_push("parse_operation")
+    defer trace_pop("parse_operation")
     buf := strings.builder_make(0, 100)
     ast.print_node(&buf, prev_node)
-    log.trace("prev_node =", strings.to_string(buf))
     
     trace_current_parse_state(parser)
 
@@ -292,8 +290,8 @@ parse_operation :: proc(
 }
 
 parse_inferred_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) {
-    log.trace("entr parse_inferred_declaration")
-    defer log.trace("exit parse_inferred_declaration")
+    trace_push("parse_inferred_declaration")
+    defer trace_pop("parse_inferred_declaration")
     assert(!is_at_end(parser))  
     trace_current_parse_state(parser)
 
@@ -325,8 +323,8 @@ is_value_lead :: proc(token: ^tok.Token) -> bool {
 
 func_call_pattern :: []tok.Type { .Identifier, .Left_Paren, .Identifier, .Right_Paren }
 parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
-    log.trace("entr parse_value")
-    defer log.trace("exit parse_value")
+    trace_push("parse_value")
+    defer trace_pop("parse_value")
     trace_current_parse_state(parser)
 
     if is_at_end(parser) {
@@ -367,8 +365,8 @@ parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
 }
 
 parse_func_call :: proc(parser: ^Parser) -> (^ast.Func_Call, bool) {
-    log.trace("entr parse_func_call")
-    defer log.trace("exit parse_func_call")
+    trace_push("parse_func_call")
+    defer trace_pop("parse_func_call")
     trace_current_parse_state(parser)
 
     ok, func_tok := expect(parser, .Identifier)
@@ -393,8 +391,8 @@ parse_func_call :: proc(parser: ^Parser) -> (^ast.Func_Call, bool) {
 }
 
 parse_array_literal :: proc(parser: ^Parser) -> (^ast.Array_Literal, bool) {
-    log.trace("entr parse_array_literal")
-    defer log.trace("exit parse_array_literal")
+    trace_push("parse_array_literal")
+    defer trace_pop("parse_array_literal")
     trace_current_parse_state(parser)
 
     ok, _ := expect(parser, .Left_Bracket)
@@ -428,7 +426,6 @@ parse_array_literal :: proc(parser: ^Parser) -> (^ast.Array_Literal, bool) {
                 break loop
             
             case .Right_Bracket:
-                log.trace("---END---")
                 append(&items, expr)
                 advance(parser)
                 break loop
@@ -628,7 +625,7 @@ consume_until_type :: proc(parser: ^Parser, type: tok.Type) -> int {
 
 trace_current_parse_state :: proc(parser: ^Parser) {
     builder := strings.builder_make(0, 100)
-    strings.write_string(&builder, "    ")
+    strings.write_string(&builder, "| ")
     for i := 0 ;; i += 1 {
         t := peek(parser, i)
         done := t.type == .EOF || t.type == .Newline
@@ -638,5 +635,26 @@ trace_current_parse_state :: proc(parser: ^Parser) {
             break
         }
     }
-    log.trace(strings.to_string(builder))
+    trace(strings.to_string(builder))
+}
+
+trace_nest := 0
+
+trace_push :: proc(msg: string) {
+    trace(fmt.aprintf("<%s>", msg))
+    trace_nest += 1
+}
+
+trace :: proc(msg: string) {
+    buf := strings.builder_make(0, 32)
+    for i := 0; i < trace_nest; i += 1 {
+        strings.write_string(&buf, "  ")
+    }
+    strings.write_string(&buf, msg)
+    log.trace(strings.to_string(buf))
+}
+
+trace_pop :: proc(msg: string) {
+    trace_nest -= 1
+    trace(fmt.aprintf("</%s>", msg))
 }

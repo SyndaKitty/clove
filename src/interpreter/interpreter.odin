@@ -361,7 +361,6 @@ to_string :: proc(val: ^Value) -> string {
         case ^Float:
             return fmt.aprintf("%f", v.val_float)
         case ^Integer:
-            log.trace("i")
             return fmt.aprintf("%d", v.val_int)
         case ^String:
             return v.val_string

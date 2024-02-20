@@ -128,10 +128,13 @@ print_errors :: proc(results: ^Result) {
             fmt.printf("[%s]\n", error.type)
         }
 
+        line_prefix := fmt.aprintf("Line %d: ", error.line_number + 1)
+        fmt.print(line_prefix)
         for r in results.lines[error.line_number] {
             fmt.print(r)
         }
-        for i := 0; i < error.from; i += 1 {
+        fmt.println()
+        for i := 0; i < error.from + len(line_prefix) - 1; i += 1 {
             fmt.print(" ")
         }
         fmt.println("^")
