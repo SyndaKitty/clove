@@ -33,9 +33,6 @@ run_interpreter :: proc() {
     interpreter: Interpreter
     interpreter.values = make(map[string]^Value)
 
-    //chunk := strings.builder_make(0, 256)
-    //defer strings.builder_destroy(&chunk)
-
     line_builder := strings.builder_make(0, 256)
     defer strings.builder_destroy(&line_builder)
     
@@ -52,7 +49,6 @@ run_interpreter :: proc() {
             break
         }
 
-        //strings.write_string(&chunk, line)
         interpret_chunk(line, &interpreter)
 
         strings.builder_reset(&line_builder)
@@ -76,8 +72,8 @@ interpret_chunk :: proc(
         }
      }
     else {
-        // ast.print_ast(res.program)
-        interpret_ast(interp_val, res.program)
+        //interpret_ast(interp_val, res.program)
+        ast.lua_ast(res.program)
     }
 }
 
