@@ -313,7 +313,7 @@ parse_inferred_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) 
     return ast.new_declaration(iden, expr), true
 }
 
-value_lead :: []tok.Type {.Identifier, .Number, .String, .Left_Bracket}
+value_lead :: []tok.Type {.Identifier, .Number, .String, .Left_Bracket, .True, .False}
 is_value_lead :: proc(token: ^tok.Token) -> bool {
     for lead in value_lead {
         if token.type == lead do return true
@@ -334,7 +334,11 @@ parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
     t := peek(parser, 0)
     if t.type == .Number {
         advance(parser)
-        return &ast.new_number_literal(t).base_val, true
+        num, ok := ast.new_number_literal(t)
+        if !ok {
+            return nil, false
+        }
+        return &num.base_val, true
     }
     else if t.type == .String {
         advance(parser)
@@ -343,6 +347,14 @@ parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
     else if t.type == .Left_Bracket {
         array, ok := parse_array_literal(parser)
         return &array.base_val, ok
+    }
+    else if t.type == .True {
+        advance(parser)
+        return ast.new_bool_literal(true), true
+    }
+    else if t.type == .False {
+        advance(parser)
+        return ast.new_bool_literal(false), true
     }
     else if match(parser, func_call_pattern, true) {
         func_call, ok := parse_func_call(parser)

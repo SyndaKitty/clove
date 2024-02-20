@@ -49,7 +49,7 @@ print_node :: proc(buf: buffer, node: ^Node) {
 
         case ^Number_Literal:
             strings.write_string(buf, "num(")
-            strings.write_string(buf, n.num_tok.text)
+            strings.write_string(buf, n.num_str)
             strings.write_string(buf, ")")
 
         case ^Unary_Op:

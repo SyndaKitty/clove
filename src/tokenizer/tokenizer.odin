@@ -49,6 +49,8 @@ Type :: enum {
     Multiply,
     Divide,
     String,
+    True,
+    False,
     Unknown,
     EOF,
 }
@@ -250,6 +252,12 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
     else if c == ',' {
         advance(tokenizer)
         add_token(tokenizer, .Comma, ",")
+    }
+    else if match(tokenizer, "true") {
+        add_token(tokenizer, .True, "true")
+    }
+    else if match(tokenizer, "false") {
+        add_token(tokenizer, .False, "false")
     }
     else if match_identifier(tokenizer) {
         // Done
@@ -612,6 +620,8 @@ descriptive_text :: proc(t: ^Token) -> string {
         case .Subtract:      return "\"-\""
         case .Multiply:      return "\"*\""
         case .Divide:        return "\"/\""
+        case .True:          return "\"true\""
+        case .False:         return "\"false\""
         case .Identifier:    return fmt.aprintf("identifier \"%s\"", t.text)
         case .Number:        return fmt.aprintf("number literal \"%s\"", t.text)
         case .String:        return fmt.aprintf("string literal \"%s\"", t.text)
@@ -637,6 +647,8 @@ debug_text :: proc(t: ^Token) -> string {
         case .Subtract:      return "- "
         case .Multiply:      return "* "
         case .Divide:        return "/ "
+        case .True:          return "\"true\""
+        case .False:         return "\"false\""
         case .Identifier:    return fmt.aprintf("'%s' ", t.text)
         case .Number:        return fmt.aprintf("%s ", t.text)
         case .String:        return fmt.aprintf("\"%s\" ", t.text)

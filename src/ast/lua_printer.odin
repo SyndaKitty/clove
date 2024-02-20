@@ -15,7 +15,7 @@ lua_ast :: proc(program: Program) {
 }
 
 lua_node :: proc(buf: buffer, node: ^Node) {
-    #partial switch n in &node.derived_node {
+    switch n in &node.derived_node {
         // Statements
         case ^Expression_Statement:
             lua_node(buf, n.expression)
@@ -32,7 +32,8 @@ lua_node :: proc(buf: buffer, node: ^Node) {
 
         // Expressions
         case ^Func_Call:
-            strings.write_string(buf, n.func.name_tok.text)
+            func_name := func_translation(n.func.name_tok.text)
+            strings.write_string(buf, func_name)
             strings.write_string(buf, "(")
             lua_node(buf, n.arg)
             strings.write_string(buf, ")")
@@ -40,8 +41,11 @@ lua_node :: proc(buf: buffer, node: ^Node) {
         case ^Identifier:
             strings.write_string(buf, n.name_tok.text)
 
-        case ^Number_Literal:
-            strings.write_string(buf, n.num_tok.text)
+        case ^Float_Literal:
+            strings.write_string(buf, n.num_str)
+
+        case ^Integer_Literal:
+            strings.write_string(buf, n.num_str)
 
         case ^Unary_Op:
             strings.write_string(buf, n.operator.text)
@@ -73,7 +77,28 @@ lua_node :: proc(buf: buffer, node: ^Node) {
             }
             strings.write_string(buf, "}")
 
+        case ^String_Literal:
+            strings.write_string(buf, "\"")
+            strings.write_string(buf, n.string_tok.text)
+            strings.write_string(buf, "\"")
+
+        case ^Bool_Literal:
+            strings.write_string(buf, "true" if n.value else "false")
+
+        case ^Number_Literal:
+            assert(false, "Number_Literal found, should be either Float or Integer")
+
         case:
             strings.write_string(buf, "Unknown type")
     }
+}
+
+func_translation :: proc(func_name: string) -> string {
+    switch func_name {
+        case "println":
+            return "print"
+        case:
+            return func_name
+    }
+    return ""
 }

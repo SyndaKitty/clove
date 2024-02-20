@@ -3,6 +3,7 @@ package ast
 import "core:intrinsics"
 import "core:mem"
 import "core:strings"
+import "core:strconv"
 
 import tok "../tokenizer"
 import "../log"
@@ -17,8 +18,11 @@ Type :: enum {
     Assignment,
     Expression,
     Number_Literal,
-    Identifier,
+    Integer_Literal,
+    Float_Literal,
     Array_Literal,
+    Bool_Literal,
+    Identifier,
     Binary_Op,
     Unary_Op,
 }
@@ -101,13 +105,53 @@ new_identifier :: proc(name: ^tok.Token) -> ^Identifier {
 
 Number_Literal :: struct {
     using base_val: Value,
-    num_tok: ^tok.Token,
+    num: Any_Number,
+    num_str: string,
 }
 
-new_number_literal :: proc(t: ^tok.Token) -> ^Number_Literal {
-    node := new(Number_Literal)
-    node.num_tok = t
-    return node
+@(require_results)
+new_number_literal :: proc(t: ^tok.Token) -> (^Number_Literal, bool) {
+    if int_lit, ok := new_integer_literal(t); ok {
+        return &int_lit.base_num, true
+    }
+    else if float_lit, ok := new_float_literal(t); ok {
+        return &float_lit.base_num, true
+    }
+    return nil, false
+}
+
+Float_Literal :: struct {
+    using base_num: Number_Literal,
+}
+
+@(require_results)
+new_float_literal :: proc(t: ^tok.Token) -> (^Float_Literal, bool) {
+    node := new(Float_Literal)
+    val, ok := strconv.parse_f64(t.text)
+    if ok {
+        node.num_str = t.text
+        return node, true
+    }
+    else {
+        return nil, false
+    }
+}
+
+Integer_Literal :: struct {
+    using base_num: Number_Literal,
+}
+
+@(require_results)
+new_integer_literal :: proc(t: ^tok.Token) -> (^Integer_Literal, bool) {
+    node := new(Integer_Literal)
+    val, ok := strconv.parse_int(t.text)
+    if ok {
+        node.num_str = t.text
+        return node, true
+    }
+    else {
+        return nil, false
+    }
 }
 
 String_Literal :: struct {
@@ -180,6 +224,17 @@ new_array_literal :: proc(items: []^Expression) -> ^Array_Literal {
     return ast
 }
 
+Bool_Literal :: struct {
+    using base_val: Value,
+    value: bool,
+}
+
+new_bool_literal :: proc(val: bool) -> ^Bool_Literal{
+    boolean := new(Bool_Literal)
+    boolean.value = val
+    return boolean
+}
+
 Comparison :: struct {
     // TODO - we should allow multiple comparisons
     // eg. a == b == c >= 2
@@ -187,17 +242,19 @@ Comparison :: struct {
 }
 
 Any_Node :: union {
-    ^Declaration,
+    ^Array_Literal,
     ^Assignment,
-
-    ^Expression_Statement,
-    ^Identifier,
     ^Binary_Op,
-    ^Unary_Op,
+    ^Bool_Literal,
+    ^Declaration,
+    ^Expression_Statement,
+    ^Float_Literal,
+    ^Func_Call,
+    ^Identifier,
+    ^Integer_Literal,
     ^Number_Literal,
     ^String_Literal,
-    ^Func_Call,
-    ^Array_Literal,
+    ^Unary_Op,
 }
 
 Any_Statement :: union {
@@ -207,22 +264,31 @@ Any_Statement :: union {
 }
 
 Any_Expr :: union {
-    ^Identifier,
-    ^Number_Literal,
-    ^Binary_Op,
-    ^Unary_Op,
-    ^Func_Call,
-    ^String_Literal,
     ^Array_Literal,
+    ^Binary_Op,
+    ^Bool_Literal,
+    ^Float_Literal,
+    ^Func_Call,
+    ^Identifier,
+    ^Integer_Literal,
+    ^String_Literal,
+    ^Unary_Op,
+}
+
+Any_Number :: struct {
+    ^Integer_Literal,
+    ^Float_Literal,
 }
 
 Any_Value :: union {
     ^Identifier,
-    ^Number_Literal,
     ^String_Literal,
+    ^Integer_Literal,
+    ^Float_Literal,
+    ^Array_Literal,
+    ^Bool_Literal,
     ^Unary_Op,
     ^Func_Call,
-    ^Array_Literal,
 }
 
 new :: proc($T: typeid) -> ^T {
@@ -240,11 +306,21 @@ new :: proc($T: typeid) -> ^T {
 }
 
 is_value :: proc(n: ^Node) -> bool {
-    #partial switch n in &n.derived_node {
+    switch n in &n.derived_node {
         case ^Number_Literal: return true
+        case ^Float_Literal: return true
+        case ^Integer_Literal: return true
         case ^String_Literal: return true
         case ^Array_Literal: return true
         case ^Identifier: return true
+        case ^Bool_Literal: return true
+        case ^Unary_Op: return true
+        
+        case ^Assignment: return false
+        case ^Binary_Op: return false
+        case ^Declaration: return false
+        case ^Expression_Statement: return false
+        case ^Func_Call: return false
         case: return false
     }
     

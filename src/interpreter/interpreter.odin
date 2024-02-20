@@ -158,21 +158,26 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
                 return nil, false
             }
 
-        case ^ast.Number_Literal:
-            // TODO move this parsing to tokenizer
-            i, ok := strconv.parse_int(n.num_tok.text)
+        case ^ast.Integer_Literal:
+            i, ok := strconv.parse_int(n.num_str)
             if ok {
                 integer := new(Integer)
                 integer.val_int = i
                 return integer, true
             }
-            
+            fmt.printf("Invalid int \"%s\"\n", n.num_str)
+            return nil, false
+
+        case ^ast.Float_Literal:
             val := new(Float)
-            val.val_float, ok = strconv.parse_f32(n.num_tok.text)
+            ok: bool
+            val.val_float, ok = strconv.parse_f32(n.num_str)
             if !ok {
-                fmt.printf("Invalid number \"%s\"\n", n.num_tok.text)
+                fmt.printf("Invalid float \"%s\"\n", n.num_str)
+                return nil, false
             }
             return val, true
+            
 
         case ^ast.String_Literal:
             val := new(String)

@@ -18,9 +18,22 @@ Error :: struct {
     text: string,
 }
 
+Scope :: struct {
+    map[string]string,
+}
+
 Analyzer :: struct {
     
 }
+
+// Lifetime analysis
+//     Declaration must come first
+//     Name checks
+
+// Type checking
+//     Declaration
+//     Assignments
+//     Operations
 
 analyze_ast :: proc(program: Program) {
     for stmt in program.statements {
@@ -43,14 +56,19 @@ analyze_node :: proc(node: ^Node) {
         // Expressions
         case ^Func_Call:
             
+
         case ^Identifier:
             
+
         case ^Number_Literal:
             
+
         case ^Unary_Op:
             
+
         case ^Binary_Op:
             
+
         case:
             
     }
