@@ -11,7 +11,7 @@ lua_ast :: proc(program: Program) {
         strings.write_string(&buffer, "\n")
     }
 
-    fmt.println(strings.to_string(buffer))
+    fmt.print(strings.to_string(buffer))
 }
 
 lua_node :: proc(buf: buffer, node: ^Node) {
@@ -64,11 +64,16 @@ lua_node :: proc(buf: buffer, node: ^Node) {
             strings.write_string(buf, "(")
             lua_node(buf, n.left)
             #partial switch n.operator.type {
-                case .Add:      strings.write_string(buf, " + ")
-                case .Subtract: strings.write_string(buf, " - ")
-                case .Multiply: strings.write_string(buf, " * ")
-                case .Divide:   strings.write_string(buf, " / ")
-                case: 
+                case .Add:              strings.write_string(buf, " +")
+                case .Subtract:         strings.write_string(buf, " - ")
+                case .Multiply:         strings.write_string(buf, " * ")
+                case .Divide:           strings.write_string(buf, " / ")
+                case .Less:             strings.write_string(buf, " < ")
+                case .Less_Or_Eq:       strings.write_string(buf, " <= ")
+                case .Greater:          strings.write_string(buf, " > ")
+                case .Greater_Or_Eq:    strings.write_string(buf, " >= ")
+                case .Equality:         strings.write_string(buf, " == ")
+                case: panic("Operator not implemented in lua printer")
             }
             lua_node(buf, n.right)
             strings.write_string(buf, ")")

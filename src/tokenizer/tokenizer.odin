@@ -36,6 +36,11 @@ Type :: enum {
     Right_Paren,
     Left_Bracket,
     Right_Bracket,
+    Less,
+    Less_Or_Eq,
+    Greater,
+    Greater_Or_Eq,
+    Equality,
     Dot,
     Comma,
     Colon,
@@ -222,6 +227,24 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
         advance(tokenizer)
         add_token(tokenizer, .Colon, ":")
     }
+    else if match(tokenizer, "<=") {
+        add_token(tokenizer, .Less_Or_Eq, "<=")
+    }
+    else if match(tokenizer, ">=") {
+        add_token(tokenizer, .Greater_Or_Eq, ">=")
+    }
+    else if c == '<' {
+        advance(tokenizer)
+        add_token(tokenizer, .Less, "<")
+    }
+    else if c == '>' {
+        advance(tokenizer)
+        add_token(tokenizer, .Greater, ">")
+    }
+    else if match(tokenizer, "==") {
+        advance(tokenizer)
+        add_token(tokenizer, .Equality, "==")
+    }
     else if c == '=' { 
         advance(tokenizer)
         add_token(tokenizer, .Equals, "=")
@@ -315,10 +338,15 @@ is_separator :: proc(r: rune) -> bool {
 }
 
 is_operator :: proc(type: Type) -> bool {
-    return type == .Add || 
-        type == .Subtract || 
-        type == .Multiply || 
-        type == .Divide
+    return  type == .Add            || 
+            type == .Subtract       || 
+            type == .Multiply       || 
+            type == .Divide         || 
+            type == .Greater        ||
+            type == .Greater_Or_Eq  ||
+            type == .Less           || 
+            type == .Less_Or_Eq     ||
+            type == .Equality
 }
 
 read_string :: proc(tokenizer: ^Tokenizer) -> bool {
@@ -593,11 +621,35 @@ error :: proc(tokenizer: ^Tokenizer, type: Error_Type, text: string) {
 }
  
 precedence :: proc(t: ^Token) -> int {
-    #partial switch t.type {
-        case .Multiply: return 10
-        case .Divide:   return 10
-        case .Add:      return 5
-        case .Subtract: return 5
+    switch t.type {
+        case .Multiply:         return 30
+        case .Divide:           return 30
+        case .Add:              return 20
+        case .Subtract:         return 20
+        case .Less:             return 10
+        case .Less_Or_Eq:       return 10
+        case .Greater:          return 10
+        case .Greater_Or_Eq:    return 10
+        case .Equality:         return 0
+        
+        case .Left_Paren:       panic("Not an operator")
+        case .Right_Paren:      panic("Not an operator")
+        case .Left_Bracket:     panic("Not an operator")
+        case .Right_Bracket:    panic("Not an operator")
+        case .Dot:              panic("Not an operator")
+        case .Comma:            panic("Not an operator")
+        case .Colon:            panic("Not an operator")
+        case .Equals:           panic("Not an operator")
+        case .Tab:              panic("Not an operator")
+        case .Number:           panic("Not an operator")
+        case .Identifier:       panic("Not an operator")
+        case .Newline:          panic("Not an operator")
+        case .String:           panic("Not an operator")
+        case .True:             panic("Not an operator")
+        case .False:            panic("Not an operator")
+        case .Unknown:          panic("Not an operator")
+        case .EOF:              panic("Not an operator")
+
         case: return 0
     }
 }
@@ -610,6 +662,11 @@ descriptive_text :: proc(t: ^Token) -> string {
         case .Right_Paren:   return "\")\""
         case .Left_Bracket:  return "\"[\""
         case .Right_Bracket: return "\"]\""
+        case .Greater_Or_Eq: return "\">=\""
+        case .Greater:       return "\">\""
+        case .Less_Or_Eq:    return "\"<=\""
+        case .Less:          return "\"<\""
+        case .Equality:      return "\"==\""
         case .Dot:           return "\".\""
         case .Comma:         return "\",\""
         case .Colon:         return "\":\""
@@ -637,6 +694,11 @@ debug_text :: proc(t: ^Token) -> string {
         case .Right_Paren:   return ") "
         case .Left_Bracket:  return "[ "
         case .Right_Bracket: return "] "
+        case .Greater_Or_Eq: return "\">=\""
+        case .Greater:       return "\">\""
+        case .Less_Or_Eq:    return "\"<=\""
+        case .Less:          return "\"<\""
+        case .Equality:      return "\"==\""
         case .Dot:           return ". "
         case .Comma:         return ", "
         case .Colon:         return ": "

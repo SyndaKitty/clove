@@ -74,7 +74,7 @@ interpret_chunk :: proc(
     else {
         ast.lua_ast(res.program)
         ast.print_ast(res.program)
-        interpret_ast(interp_val, res.program)
+        // interpret_ast(interp_val, res.program)
     }
 }
 
@@ -243,9 +243,9 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
                     }
                     ret.val_float = to_float(left) / r
                     return ret, true
-                    
+
                 case:
-                    fmt.println("Unknown operator \"%s\"", n.operator.text)
+                    fmt.printf("Unknown operator \"%s\"\n", n.operator.text)
                     return nil, false
             }
 

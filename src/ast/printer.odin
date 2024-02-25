@@ -13,7 +13,7 @@ print_ast :: proc(program: Program) {
         strings.write_string(&buffer, "\n")
     }
 
-    fmt.println(strings.to_string(buffer))
+    fmt.print(strings.to_string(buffer))
 }
 
 print_node :: proc(buf: buffer, node: ^Node) {
@@ -70,11 +70,19 @@ print_node :: proc(buf: buffer, node: ^Node) {
 
         case ^Binary_Op:
             #partial switch n.operator.type {
-                case .Add:      strings.write_string(buf, "ADD(")
-                case .Subtract: strings.write_string(buf, "SUB(")
-                case .Multiply: strings.write_string(buf, "MUL(")
-                case .Divide:   strings.write_string(buf, "DIV(")
+                case .Add:              strings.write_string(buf, "ADD(")
+                case .Subtract:         strings.write_string(buf, "SUB(")
+                case .Multiply:         strings.write_string(buf, "MUL(")
+                case .Divide:           strings.write_string(buf, "DIV(")
+                case .Less:             strings.write_string(buf, "LESS(")
+                case .Less_Or_Eq:       strings.write_string(buf, "LESS_EQ(")
+                case .Greater:          strings.write_string(buf, "GREATER(")
+                case .Greater_Or_Eq:    strings.write_string(buf, "GREATER_EQ(")
+                case .Equality:         strings.write_string(buf, "EQ(")
                 case: 
+                    if len(n.operator.text) == 0 {
+                        panic("No text representation of operator")
+                    }    
                     strings.write_string(buf, n.operator.text)
                     strings.write_string(buf, "(")
             }
