@@ -23,7 +23,12 @@ print_node :: proc(buf: buffer, node: ^Node) {
             print_node(buf, n.expression)
         
         case ^Declaration:
-            strings.write_string(buf, "declare ")
+            if n.const {
+                strings.write_string(buf, "const ")
+            }
+            else {
+                strings.write_string(buf, "declare ")
+            }
             strings.write_string(buf, n.identifier.name_tok.text)
             strings.write_string(buf, " = ")
             print_node(buf, n.expression)
@@ -128,6 +133,9 @@ print_node :: proc(buf: buffer, node: ^Node) {
             strings.write_string(buf, "str(")
             strings.write_string(buf, n.string_tok.text)
             strings.write_string(buf, ")")
+
+        case ^Nil:
+            strings.write_string(buf, "nil")
 
         case:
             strings.write_string(buf, "Unknown type")

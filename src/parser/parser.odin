@@ -164,11 +164,22 @@ parse_statement :: proc(parser: ^Parser) -> (^ast.Statement, bool) {
 }
 
 inferred_declaration_pattern :: []tok.Type{.Identifier, .Colon, .Equals}
+inferred_constant_declaration_pattern :: []tok.Type{.Identifier, .Colon, .Colon}
 explicit_declaration_pattern :: []tok.Type{.Identifier, .Colon, .Identifier}
 
 parse_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) {
     if match(parser, inferred_declaration_pattern, true) {
         decl, ok := parse_inferred_declaration(parser)
+        if !ok {
+            return nil, false
+        }
+        return decl, true
+    }
+    else if match(parser, inferred_constant_declaration_pattern, true) {
+        decl, ok := parse_inferred_constant_declaration(parser)
+        if !ok {
+            return nil, false
+        }
         return decl, true
     }
     else if match(parser, explicit_declaration_pattern, true) {
@@ -302,8 +313,6 @@ parse_inferred_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) 
 
     expr, ok := parse_expression(parser)
     if !ok {
-        // TODO better error
-        unexpected_token(parser, "Invalid expression")
         consume_line(parser)
         return nil, false
     }
@@ -313,6 +322,28 @@ parse_inferred_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) 
     }
 
     return ast.new_declaration(iden, expr), true
+}
+
+parse_inferred_constant_declaration :: proc(parser: ^Parser) -> (^ast.Declaration, bool) {
+    trace_push("parse_inferred_constant_declaration")
+    defer trace_pop("parse_inferred_constant_declaration")
+    assert(!is_at_end(parser))
+    trace_current_parse_state(parser)
+
+    iden := ast.new_identifier(peek(parser, 0))
+    advance(parser, len(inferred_constant_declaration_pattern))
+
+    expr, ok := parse_expression(parser)
+    if !ok {
+        consume_line(parser)
+        return nil, false
+    }
+
+    if !expect_newline(parser) {
+        consume_line(parser)
+    }
+
+    return ast.new_declaration(iden, expr, true), true
 }
 
 value_lead :: []tok.Type {.Identifier, .Number, .String, .Left_Bracket, .True, .False}
@@ -367,6 +398,10 @@ parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
     else if t.type == .False {
         advance(parser)
         return ast.new_bool_literal(false), true
+    }
+    else if t.type == .Nil {
+        advance(parser)
+        return ast.new_nil(), true
     }
     else if match(parser, func_call_pattern, true) {
         func_call, ok := parse_func_call(parser)

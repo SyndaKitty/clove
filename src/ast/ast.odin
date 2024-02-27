@@ -25,6 +25,7 @@ Type :: enum {
     Identifier,
     Binary_Op,
     Unary_Op,
+    Nil,
 }
 
 Node :: struct {
@@ -47,16 +48,19 @@ Declaration :: struct {
     using base_stmt: Statement,
     identifier: ^Identifier,
     expression: ^Expression,
+    const: bool,
 }
 
 new_declaration :: proc(
     identifier: ^Identifier, 
     expression: ^Expression,
+    const := false
 ) -> ^Declaration 
 {
     ast := new(Declaration)
     ast.identifier = identifier
     ast.expression = expression
+    ast.const = const
 
     return ast
 }
@@ -235,6 +239,15 @@ new_bool_literal :: proc(val: bool) -> ^Bool_Literal{
     return boolean
 }
 
+Nil :: struct {
+    using base_val: Value,
+}
+
+new_nil :: proc() -> ^Nil {
+    n := new(Nil)
+    return n
+}
+
 Comparison :: struct {
     // TODO - we should allow multiple comparisons
     // eg. a == b == c >= 2
@@ -255,6 +268,7 @@ Any_Node :: union {
     ^Number_Literal,
     ^String_Literal,
     ^Unary_Op,
+    ^Nil,
 }
 
 Any_Statement :: union {
@@ -273,6 +287,7 @@ Any_Expr :: union {
     ^Integer_Literal,
     ^String_Literal,
     ^Unary_Op,
+    ^Nil,
 }
 
 Any_Number :: struct {
@@ -289,6 +304,7 @@ Any_Value :: union {
     ^Bool_Literal,
     ^Unary_Op,
     ^Func_Call,
+    ^Nil,
 }
 
 new :: proc($T: typeid) -> ^T {
@@ -307,21 +323,22 @@ new :: proc($T: typeid) -> ^T {
 
 is_value :: proc(n: ^Node) -> bool {
     switch n in &n.derived_node {
-        case ^Number_Literal: return true
-        case ^Float_Literal: return true
-        case ^Integer_Literal: return true
-        case ^String_Literal: return true
-        case ^Array_Literal: return true
-        case ^Identifier: return true
-        case ^Bool_Literal: return true
-        case ^Unary_Op: return true
+        case ^Number_Literal:       return true
+        case ^Float_Literal:        return true
+        case ^Integer_Literal:      return true
+        case ^String_Literal:       return true
+        case ^Array_Literal:        return true
+        case ^Identifier:           return true
+    case ^Bool_Literal:             return true
+        case ^Unary_Op:             return true
+        case ^Nil:                  return true
         
-        case ^Assignment: return false
-        case ^Binary_Op: return false
-        case ^Declaration: return false
+        case ^Assignment:           return false
+        case ^Binary_Op:            return false
+        case ^Declaration:          return false
         case ^Expression_Statement: return false
-        case ^Func_Call: return false
-        case: return false
+        case ^Func_Call:            return false
+        case:                       return false
     }
     
     return false

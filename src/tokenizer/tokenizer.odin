@@ -58,6 +58,9 @@ Type :: enum {
     String,
     True,
     False,
+    And,
+    Or,
+    Nil,
     Unknown,
     EOF,
 }
@@ -292,6 +295,15 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
     else if match(tokenizer, "false") {
         add_token(tokenizer, .False, "false")
     }
+    else if match(tokenizer, "and") {
+        add_token(tokenizer, .And, "and")
+    }
+    else if match(tokenizer, "or") {
+        add_token(tokenizer, .Or, "or")
+    }
+    else if match(tokenizer, "nil") {
+        add_token(tokenizer, .Nil, "nil")
+    }
     else if match_identifier(tokenizer) {
         // Done
     }
@@ -357,7 +369,9 @@ is_binary_operator :: proc(type: Type) -> bool {
             type == .Less           || 
             type == .Less_Or_Eq     ||
             type == .Equality       ||
-            type == .Not_Equal
+            type == .Not_Equal      ||
+            type == .And            ||
+            type == .Or
 }
 
 is_unary_operator :: proc(type: Type) -> bool {
@@ -639,17 +653,22 @@ error :: proc(tokenizer: ^Tokenizer, type: Error_Type, text: string) {
  
 precedence :: proc(t: ^Token) -> int {
     switch t.type {
-        case .Multiply:         return 30
-        case .Divide:           return 30
-        case .Add:              return 20
-        case .Subtract:         return 20
-        case .Less:             return 10
-        case .Less_Or_Eq:       return 10
-        case .Greater:          return 10
-        case .Greater_Or_Eq:    return 10
-        case .Equality:         return 0
-        case .Not_Equal:        return 0
-        case .Bang:             panic("Not an operator") // Unary operators don't count
+        case .Multiply:         return 50
+        case .Divide:           return 50
+        case .Add:              return 40
+        case .Subtract:         return 40
+        case .Less:             return 30
+        case .Less_Or_Eq:       return 30
+        case .Greater:          return 30
+        case .Greater_Or_Eq:    return 30
+        case .Equality:         return 20
+        case .Not_Equal:        return 20
+        case .And:              return 10
+        case .Or:               return 0
+
+        // Unary operators don't need precedence
+        case .Bang:             panic("Not an operator") 
+
         case .Left_Paren:       panic("Not an operator")
         case .Right_Paren:      panic("Not an operator")
         case .Left_Bracket:     panic("Not an operator")
@@ -665,6 +684,7 @@ precedence :: proc(t: ^Token) -> int {
         case .String:           panic("Not an operator")
         case .True:             panic("Not an operator")
         case .False:            panic("Not an operator")
+        case .Nil:              panic("Not an operator")
         case .Unknown:          panic("Not an operator")
         case .EOF:              panic("Not an operator")
 
@@ -675,68 +695,74 @@ precedence :: proc(t: ^Token) -> int {
 // Give a representation of the token for a message to the user
 descriptive_text :: proc(t: ^Token) -> string {
     switch t.type {
-        case .Newline:       return "newline"
-        case .Left_Paren:    return "\"(\""
-        case .Right_Paren:   return "\")\""
-        case .Left_Bracket:  return "\"[\""
-        case .Right_Bracket: return "\"]\""
-        case .Greater_Or_Eq: return "\">=\""
-        case .Greater:       return "\">\""
-        case .Less_Or_Eq:    return "\"<=\""
-        case .Less:          return "\"<\""
-        case .Equality:      return "\"==\""
-        case .Not_Equal:     return "\"!=\""
-        case .Bang:          return "\"!\""
-        case .Dot:           return "\".\""
-        case .Comma:         return "\",\""
-        case .Colon:         return "\":\""
-        case .Equals:        return "\"=\""
-        case .Tab:           return "tab"
-        case .EOF:           return "end of file"
-        case .Add:           return "\"+\""
-        case .Subtract:      return "\"-\""
-        case .Multiply:      return "\"*\""
-        case .Divide:        return "\"/\""
-        case .True:          return "\"true\""
-        case .False:         return "\"false\""
-        case .Identifier:    return fmt.aprintf("identifier \"%s\"", t.text)
-        case .Number:        return fmt.aprintf("number literal \"%s\"", t.text)
-        case .String:        return fmt.aprintf("string literal \"%s\"", t.text)
-        case .Unknown:       return fmt.aprintf("token \"%s\"", t.text)
+        case .Newline:          return "newline"
+        case .Left_Paren:       return "\"(\""
+        case .Right_Paren:      return "\")\""
+        case .Left_Bracket:     return "\"[\""
+        case .Right_Bracket:    return "\"]\""
+        case .Greater_Or_Eq:    return "\">=\""
+        case .Greater:          return "\">\""
+        case .Less_Or_Eq:       return "\"<=\""
+        case .Less:             return "\"<\""
+        case .Equality:         return "\"==\""
+        case .Not_Equal:        return "\"!=\""
+        case .Bang:             return "\"!\""
+        case .Dot:              return "\".\""
+        case .Comma:            return "\",\""
+        case .Colon:            return "\":\""
+        case .Equals:           return "\"=\""
+        case .Tab:              return "tab"
+        case .EOF:              return "end of file"
+        case .Add:              return "\"+\""
+        case .Subtract:         return "\"-\""
+        case .Multiply:         return "\"*\""
+        case .Divide:           return "\"/\""
+        case .True:             return "\"true\""
+        case .False:            return "\"false\""
+        case .And:              return "and"
+        case .Or:               return "or"
+        case .Nil:              return "nil"
+        case .Identifier:       return fmt.aprintf("identifier \"%s\"", t.text)
+        case .Number:           return fmt.aprintf("number literal \"%s\"", t.text)
+        case .String:           return fmt.aprintf("string literal \"%s\"", t.text)
+        case .Unknown:          return fmt.aprintf("token \"%s\"", t.text)
     }
     return ""
 }
 
 debug_text :: proc(t: ^Token) -> string {
     switch t.type {
-        case .Newline:       return "\\n"
-        case .Left_Paren:    return "( "
-        case .Right_Paren:   return ") "
-        case .Left_Bracket:  return "[ "
-        case .Right_Bracket: return "] "
-        case .Greater_Or_Eq: return "\">=\""
-        case .Greater:       return "\">\""
-        case .Less_Or_Eq:    return "\"<=\""
-        case .Less:          return "\"<\""
-        case .Equality:      return "\"==\""
-        case .Not_Equal:     return "\"!=\""
-        case .Bang:          return "\"!\""
-        case .Dot:           return ". "
-        case .Comma:         return ", "
-        case .Colon:         return ": "
-        case .Equals:        return "= "
-        case .Tab:           return "\\t "
-        case .EOF:           return "EOF"
-        case .Add:           return "+ "
-        case .Subtract:      return "- "
-        case .Multiply:      return "* "
-        case .Divide:        return "/ "
-        case .True:          return "\"true\""
-        case .False:         return "\"false\""
-        case .Identifier:    return fmt.aprintf("'%s' ", t.text)
-        case .Number:        return fmt.aprintf("%s ", t.text)
-        case .String:        return fmt.aprintf("\"%s\" ", t.text)
-        case .Unknown:       return fmt.aprintf("?%s? ", t.text)
+        case .Newline:          return "\\n"
+        case .Left_Paren:       return "( "
+        case .Right_Paren:      return ") "
+        case .Left_Bracket:     return "[ "
+        case .Right_Bracket:    return "] "
+        case .Greater_Or_Eq:    return "\">=\""
+        case .Greater:          return "\">\""
+        case .Less_Or_Eq:       return "\"<=\""
+        case .Less:             return "\"<\""
+        case .Equality:         return "\"==\""
+        case .Not_Equal:        return "\"!=\""
+        case .Bang:             return "\"!\""
+        case .Dot:              return ". "
+        case .Comma:            return ", "
+        case .Colon:            return ": "
+        case .Equals:           return "= "
+        case .Tab:              return "\\t "
+        case .EOF:              return "EOF"
+        case .Add:              return "+ "
+        case .Subtract:         return "- "
+        case .Multiply:         return "* "
+        case .Divide:           return "/ "
+        case .True:             return "\"true\""
+        case .False:            return "\"false\""
+        case .And:              return "and"
+        case .Or:               return "or"
+        case .Nil:              return "nil"
+        case .Identifier:       return fmt.aprintf("'%s' ", t.text)
+        case .Number:           return fmt.aprintf("%s ", t.text)
+        case .String:           return fmt.aprintf("\"%s\" ", t.text)
+        case .Unknown:          return fmt.aprintf("?%s? ", t.text)
     }
     return ""
 }

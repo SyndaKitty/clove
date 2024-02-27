@@ -74,6 +74,8 @@ lua_node :: proc(buf: buffer, node: ^Node) {
                 case .Greater_Or_Eq:    strings.write_string(buf, " >= ")
                 case .Equality:         strings.write_string(buf, " == ")
                 case .Not_Equal:        strings.write_string(buf, " != ")
+                case .And:              strings.write_string(buf, " and ")
+                case .Or:               strings.write_string(buf, " or ")
                 case: panic("Operator not implemented in lua printer")
             }
             lua_node(buf, n.right)
@@ -102,6 +104,9 @@ lua_node :: proc(buf: buffer, node: ^Node) {
 
         case ^Number_Literal:
             assert(false, "Number_Literal found, should be either Float or Integer")
+
+        case ^Nil:
+            strings.write_string(buf, "nil")
 
         case:
             strings.write_string(buf, "Unknown type")

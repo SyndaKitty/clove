@@ -265,6 +265,10 @@ evaluate_expression :: proc(interp: ^Interpreter, node: ^ast.Node) -> (^Value, b
             b.boolean = n.value
             return &b.base, true
 
+        case ^ast.Nil:
+            fmt.println("Nil not implemented")
+            return nil, false
+
         case ^ast.Assignment:           assert(false, "Invalid expression")
         case ^ast.Declaration:          assert(false, "Invalid expression")
         case ^ast.Expression_Statement: assert(false, "Invalid expression")

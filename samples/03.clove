@@ -27,7 +27,7 @@ correct := eq == !not_eq
 /// Bool operators
 // and or xor
 meow := less or more
-weow := a == b xor less
+weow := a == b or less
 rawr := a != b and less
 
 
