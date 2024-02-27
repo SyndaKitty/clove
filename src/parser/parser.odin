@@ -39,6 +39,7 @@ Result_Type :: enum {
 Error_Type :: enum {
     Unexpected_Token,
     Expected_Newline,
+    Unexpected_End,
 }
 
 Error :: struct {
@@ -222,7 +223,8 @@ parse_expression :: proc(parser: ^Parser) -> (^ast.Expression, bool) {
 
     node := cast(^ast.Expression)val
 
-    for !is_expression_end(peek(parser, 0).type) && tok.is_operator(peek(parser, 0).type)
+    for !is_expression_end(peek(parser, 0).type) && 
+        tok.is_binary_operator(peek(parser, 0).type)
     {
         node, ok = parse_operation(parser, node)
         if !ok {
@@ -250,7 +252,7 @@ parse_operation :: proc(
     trace_current_parse_state(parser)
 
     op := peek(parser)
-    if !tok.is_operator(op.type) {
+    if !tok.is_binary_operator(op.type) {
         unexpected_token_message(
             parser, 
             fmt.aprintf(
@@ -328,11 +330,21 @@ parse_value :: proc(parser: ^Parser) -> (^ast.Value, bool) {
     trace_current_parse_state(parser)
 
     if is_at_end(parser) {
+        unexpected_end(parser, "value")
         return nil, false
-    }
-    
+    }    
+
     t := peek(parser, 0)
-    if t.type == .Number {
+    if tok.is_unary_operator(t.type) {
+        advance(parser)
+        val, ok := parse_value(parser)
+        if !ok {
+            return nil, false
+        }
+
+        return cast(^ast.Value)ast.new_unary(val, t), true
+    }
+    else if t.type == .Number {
         advance(parser)
         num, ok := ast.new_number_literal(t)
         if !ok {
@@ -618,6 +630,14 @@ unexpected_token_message :: proc(parser: ^Parser, text: string) {
 unexpected_token :: proc {
     unexpected_token_token,
     unexpected_token_message,
+}
+
+unexpected_end :: proc(parser: ^Parser, expected_text: string) {
+    error(
+        parser, 
+        .Unexpected_End, 
+        fmt.aprintf("Unexpected end of file, expected %s", expected_text),
+    )
 }
 
 consume_whitespace :: proc(parser: ^Parser) {

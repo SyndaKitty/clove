@@ -48,6 +48,7 @@ main :: proc() {
     else if len(os.args) == 1 {
         interp.run_interpreter()
     }
+
 }
 
 run_clove_file :: proc(filename: string) {

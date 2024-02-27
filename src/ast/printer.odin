@@ -63,7 +63,10 @@ print_node :: proc(buf: buffer, node: ^Node) {
 
         case ^Unary_Op:
             strings.write_string(buf, "unary(")
-            strings.write_string(buf, n.operator.text)
+            #partial switch n.operator.type {
+                case .Bang: strings.write_string(buf, "NOT")
+                case:       strings.write_string(buf, n.operator.text)
+            }
             strings.write_string(buf, " ")
             print_node(buf, n.subject)
             strings.write_string(buf, ")")
@@ -79,6 +82,7 @@ print_node :: proc(buf: buffer, node: ^Node) {
                 case .Greater:          strings.write_string(buf, "GREATER(")
                 case .Greater_Or_Eq:    strings.write_string(buf, "GREATER_EQ(")
                 case .Equality:         strings.write_string(buf, "EQ(")
+                case .Not_Equal:        strings.write_string(buf, "NOT_EQ(")
                 case: 
                     if len(n.operator.text) == 0 {
                         panic("No text representation of operator")

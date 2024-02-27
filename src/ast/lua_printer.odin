@@ -73,6 +73,7 @@ lua_node :: proc(buf: buffer, node: ^Node) {
                 case .Greater:          strings.write_string(buf, " > ")
                 case .Greater_Or_Eq:    strings.write_string(buf, " >= ")
                 case .Equality:         strings.write_string(buf, " == ")
+                case .Not_Equal:        strings.write_string(buf, " != ")
                 case: panic("Operator not implemented in lua printer")
             }
             lua_node(buf, n.right)

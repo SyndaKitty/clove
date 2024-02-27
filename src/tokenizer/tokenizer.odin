@@ -41,6 +41,8 @@ Type :: enum {
     Greater,
     Greater_Or_Eq,
     Equality,
+    Not_Equal,
+    Bang,
     Dot,
     Comma,
     Colon,
@@ -245,6 +247,14 @@ scan_token :: proc(tokenizer: ^Tokenizer) {
         advance(tokenizer)
         add_token(tokenizer, .Equality, "==")
     }
+    else if match(tokenizer, "!=") {
+        advance(tokenizer)
+        add_token(tokenizer, .Not_Equal, "!=")
+    }
+    else if c == '!' {
+        advance(tokenizer)
+        add_token(tokenizer, .Bang, "!")
+    }
     else if c == '=' { 
         advance(tokenizer)
         add_token(tokenizer, .Equals, "=")
@@ -337,7 +347,7 @@ is_separator :: proc(r: rune) -> bool {
     return r == ' ' || r == '\t' || r == '\n' || r == '\r'
 }
 
-is_operator :: proc(type: Type) -> bool {
+is_binary_operator :: proc(type: Type) -> bool {
     return  type == .Add            || 
             type == .Subtract       || 
             type == .Multiply       || 
@@ -346,7 +356,14 @@ is_operator :: proc(type: Type) -> bool {
             type == .Greater_Or_Eq  ||
             type == .Less           || 
             type == .Less_Or_Eq     ||
-            type == .Equality
+            type == .Equality       ||
+            type == .Not_Equal
+}
+
+is_unary_operator :: proc(type: Type) -> bool {
+    return  type == .Add        ||
+            type == .Subtract   ||
+            type == .Bang
 }
 
 read_string :: proc(tokenizer: ^Tokenizer) -> bool {
@@ -631,7 +648,8 @@ precedence :: proc(t: ^Token) -> int {
         case .Greater:          return 10
         case .Greater_Or_Eq:    return 10
         case .Equality:         return 0
-        
+        case .Not_Equal:        return 0
+        case .Bang:             panic("Not an operator") // Unary operators don't count
         case .Left_Paren:       panic("Not an operator")
         case .Right_Paren:      panic("Not an operator")
         case .Left_Bracket:     panic("Not an operator")
@@ -667,6 +685,8 @@ descriptive_text :: proc(t: ^Token) -> string {
         case .Less_Or_Eq:    return "\"<=\""
         case .Less:          return "\"<\""
         case .Equality:      return "\"==\""
+        case .Not_Equal:     return "\"!=\""
+        case .Bang:          return "\"!\""
         case .Dot:           return "\".\""
         case .Comma:         return "\",\""
         case .Colon:         return "\":\""
@@ -699,6 +719,8 @@ debug_text :: proc(t: ^Token) -> string {
         case .Less_Or_Eq:    return "\"<=\""
         case .Less:          return "\"<\""
         case .Equality:      return "\"==\""
+        case .Not_Equal:     return "\"!=\""
+        case .Bang:          return "\"!\""
         case .Dot:           return ". "
         case .Comma:         return ", "
         case .Colon:         return ": "
